@@ -1,7 +1,7 @@
 # Default values for gpu-scheduler-check
 # This is a YAML-formatted file.
 
-replicaCount: 3
+replicaCount: 5
 
 image:
   repository: gpu-scheduler-check
@@ -16,7 +16,7 @@ fullnameOverride: ""
 gpuScheduling:
   enabled: true
   schedulerName: "gpu-scheduler"
-  # GPU scheduling map - example configuration
+  # GPU scheduling map - complete test configuration
   # This will be used to generate the annotation
   schedulingMap:
     - podIndex: 0
@@ -28,6 +28,12 @@ gpuScheduling:
     - podIndex: 2
       nodeName: "node3"
       gpuDevices: "0,1,2"
+    - podIndex: 3
+      nodeName: "node4"
+      gpuDevices: "3"
+    - podIndex: 4
+      nodeName: "node4"
+      gpuDevices: "3"
 
 # Test service configuration
 testService:

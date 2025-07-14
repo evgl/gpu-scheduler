@@ -90,6 +90,8 @@ kubectl logs -l app.kubernetes.io/name=gpu-scheduler-check -n gpu-scheduler-test
 # Node: gpu-scheduler-cluster-worker, CUDA_VISIBLE_DEVICES: 0,1
 # Node: gpu-scheduler-cluster-worker2, CUDA_VISIBLE_DEVICES: 2
 # Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+# Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+# Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
 ```
 
 ## Architecture
@@ -293,7 +295,7 @@ Configure test service behavior:
 
 ```yaml
 # values.yaml
-replicaCount: 3
+replicaCount: 5
 
 gpuScheduling:
   enabled: true
@@ -346,46 +348,8 @@ kubectl logs -l app.kubernetes.io/name=gpu-scheduler-check -f
 # Node: node1, CUDA_VISIBLE_DEVICES: 0,1
 # Node: node2, CUDA_VISIBLE_DEVICES: 2
 # Node: node3, CUDA_VISIBLE_DEVICES: 0,1,2
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Scheduler Not Scheduling Pods:**
-```bash
-# Check scheduler logs
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler
-
-# Verify RBAC permissions
-kubectl auth can-i create bindings --as=system:serviceaccount:gpu-scheduler-system:gpu-scheduler
-```
-
-**CUDA_VISIBLE_DEVICES Not Set:**
-```bash
-# Check if webhook is enabled and working
-kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
-
-# Check webhook logs
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
-
-# Check annotation format
-kubectl get pod <pod-name> -o yaml | grep -A 10 annotations
-
-# Verify scheduler is processing the pod
-kubectl describe pod <pod-name>
-
-# Check pod environment variables
-kubectl exec <pod-name> -- env | grep CUDA
-```
-
-**ArgoCD Sync Issues:**
-```bash
-# Check application status
-kubectl get applications -n argocd
-
-# View sync errors
-kubectl describe application <app-name> -n argocd
+# Node: node4, CUDA_VISIBLE_DEVICES: 3
+# Node: node4, CUDA_VISIBLE_DEVICES: 3
 ```
 
 ## Documentation

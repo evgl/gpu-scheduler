@@ -37,40 +37,27 @@ Node: <node_name>, CUDA_VISIBLE_DEVICES: <gpu_devices>
 
 ### Example Output
 
+When deployed as part of the complete GPU scheduling test (5 pods across 4 nodes):
+
 ```
-2025-07-09 03:00:00,000 - __main__ - INFO - GPU Scheduler Check service starting...
-2025-07-09 03:00:00,000 - __main__ - INFO - Log interval: 10 seconds
-2025-07-09 03:00:00,000 - __main__ - INFO - Environment validation passed
-2025-07-09 03:00:00,000 - __main__ - INFO - Node: node1, CUDA_VISIBLE_DEVICES: 0,1
-2025-07-09 03:00:10,000 - __main__ - INFO - Node: node1, CUDA_VISIBLE_DEVICES: 0,1
-```
+# Pod 0 on node1
+2025-07-14 03:00:00,000 - __main__ - INFO - GPU Scheduler Check service starting...
+2025-07-14 03:00:00,000 - __main__ - INFO - Log interval: 10 seconds
+2025-07-14 03:00:00,000 - __main__ - INFO - Environment validation passed
+2025-07-14 03:00:00,000 - __main__ - INFO - Node: node1, CUDA_VISIBLE_DEVICES: 0,1
+2025-07-14 03:00:10,000 - __main__ - INFO - Node: node1, CUDA_VISIBLE_DEVICES: 0,1
 
-## Docker Image
+# Pod 1 on node2
+2025-07-14 03:00:05,000 - __main__ - INFO - Node: node2, CUDA_VISIBLE_DEVICES: 2
 
-### Build
-```bash
-docker build -t gpu-scheduler-check:latest .
-```
+# Pod 2 on node3
+2025-07-14 03:00:06,000 - __main__ - INFO - Node: node3, CUDA_VISIBLE_DEVICES: 0,1,2
 
-### Run Locally
-```bash
-docker run --rm \
-  -e NODE_NAME=test-node \
-  -e CUDA_VISIBLE_DEVICES=0,1 \
-  -e LOG_INTERVAL=5 \
-  gpu-scheduler-check:latest
-```
+# Pod 3 on node4
+2025-07-14 03:00:07,000 - __main__ - INFO - Node: node4, CUDA_VISIBLE_DEVICES: 3
 
-## Kubernetes Deployment
-
-This service should be deployed with:
-```yaml
-spec:
-  schedulerName: gpu-scheduler
-  annotations:
-    gpu-scheduling-map: |
-      0=node1:0,1
-      1=node2:2
+# Pod 4 on node4
+2025-07-14 03:00:08,000 - __main__ - INFO - Node: node4, CUDA_VISIBLE_DEVICES: 3
 ```
 
 The scheduler will:

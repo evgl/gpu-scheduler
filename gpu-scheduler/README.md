@@ -65,23 +65,6 @@ The image includes both the scheduler and webhook server. Use different commands
 - Scheduler: `python -u scheduler.py`
 - Webhook: `python -u webhook_server.py`
 
-## Running Locally
-
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the scheduler:
-```bash
-python scheduler.py
-```
-
-3. Run the webhook server (requires TLS certificates):
-```bash
-python webhook_server.py
-```
-
 ## Deployment
 
 Use the provided Helm chart for deployment. The chart handles:
@@ -94,7 +77,6 @@ Use the provided Helm chart for deployment. The chart handles:
 
 Run unit tests:
 ```bash
-python test_scheduler.py
 python test_basic.py
 ```
 

@@ -9,9 +9,9 @@ This comprehensive guide will take you from zero to a fully working GPU schedule
 3. [Step 1: Local Cluster Setup](#step-1-local-cluster-setup)
 4. [Step 2: Build Container Images](#step-2-build-container-images)
 5. [Step 3: Deploy GPU Scheduler with Webhook](#step-3-deploy-gpu-scheduler-with-webhook)
-6. [Step 4: Test Complete Solution](#step-4-test-complete-solution)
-7. [Step 5: Verify End-to-End Results](#step-5-verify-end-to-end-results)
-8. [Step 6: ArgoCD Deployment (Optional)](#step-6-argocd-deployment-optional)
+6. [Step 4: Deploy Test Service and Verify GPU Scheduling](#step-4-deploy-test-service-and-verify-gpu-scheduling)
+7. [Step 5: Generate Required Task Outputs](#step-5-generate-required-task-outputs)
+8. [Step 6: ArgoCD Deployment](#step-6-argocd-deployment)
 9. [Troubleshooting](#troubleshooting)
 
 ## Overview
@@ -248,149 +248,144 @@ gpu-scheduler-webhook   1          60s
 
 **🔧 Note**: The robust bootstrap approach above automatically detects and fixes the chicken-and-egg problem where the webhook configuration tries to call the webhook service before it's ready. This race condition occurs frequently enough that automatic detection and fixing is necessary for reliable deployment.
 
-## Step 4: Test Complete Solution
+## Step 4: Deploy Test Service and Verify GPU Scheduling
 
-### 4.1 Create Test Pod with Webhook
+### 4.1 Deploy GPU Scheduler Check Test Service
 ```bash
-# Create a test pod to verify webhook functionality
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: webhook-test-0
-  namespace: gpu-scheduler-tests
-  annotations:
-    gpu-scheduling-map: "0=node1:0,1"
-spec:
-  schedulerName: gpu-scheduler
-  containers:
-  - name: test
-    image: busybox
-    command: ["sh", "-c", "echo 'CUDA_VISIBLE_DEVICES='$CUDA_VISIBLE_DEVICES; sleep 300"]
-EOF
+# Deploy the test service using Helm chart
+helm install gpu-test charts/gpu-scheduler-check \
+  --namespace gpu-scheduler-tests \
+  --create-namespace \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
-### 4.2 Verify Pod Placement and Environment
+### 4.2 Wait for Test Pods to be Ready
 ```bash
-# Check pod was scheduled to correct node
-kubectl get pod webhook-test-0 -n gpu-scheduler-tests -o wide
-# Should be on gpu-scheduler-cluster-worker (node1)
+# Wait for all test pods to be ready
+kubectl wait --for=condition=ready pod -l "app.kubernetes.io/name=gpu-scheduler-check" \
+  -n gpu-scheduler-tests --timeout=120s
 
-# Check environment variable was injected
-kubectl logs webhook-test-0 -n gpu-scheduler-tests
-# Should show: CUDA_VISIBLE_DEVICES=0,1
+# Check pod placement across nodes
+kubectl get pods -l "app.kubernetes.io/name=gpu-scheduler-check" \
+  -n gpu-scheduler-tests -o wide
 ```
 
-### 4.3 Test Multiple Pods
+**✅ Expected Result:**
+```
+NAME                             READY   STATUS    RESTARTS   AGE   NODE
+gpu-test-gpu-scheduler-check-0   1/1     Running   0          60s   gpu-scheduler-cluster-worker   
+gpu-test-gpu-scheduler-check-1   1/1     Running   0          60s   gpu-scheduler-cluster-worker2  
+gpu-test-gpu-scheduler-check-2   1/1     Running   0          60s   gpu-scheduler-cluster-worker3  
+gpu-test-gpu-scheduler-check-3   1/1     Running   0          60s   gpu-scheduler-cluster-worker4  
+gpu-test-gpu-scheduler-check-4   1/1     Running   0          60s   gpu-scheduler-cluster-worker4  
+```
+
+### 4.3 Verify GPU Scheduling Results
 ```bash
-# Create additional test pods
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: webhook-test-1
-  namespace: gpu-scheduler-tests
-  annotations:
-    gpu-scheduling-map: |
-      0=node1:0,1
-      1=node2:2
-      2=node3:0,1,2
-spec:
-  schedulerName: gpu-scheduler
-  containers:
-  - name: test
-    image: busybox
-    command: ["sh", "-c", "echo 'Pod 1: CUDA_VISIBLE_DEVICES='$CUDA_VISIBLE_DEVICES; sleep 300"]
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: webhook-test-2
-  namespace: gpu-scheduler-tests
-  annotations:
-    gpu-scheduling-map: |
-      0=node1:0,1
-      1=node2:2
-      2=node3:0,1,2
-spec:
-  schedulerName: gpu-scheduler
-  containers:
-  - name: test
-    image: busybox
-    command: ["sh", "-c", "echo 'Pod 2: CUDA_VISIBLE_DEVICES='$CUDA_VISIBLE_DEVICES; sleep 300"]
-EOF
+# Check the logs to verify CUDA_VISIBLE_DEVICES was set correctly
+kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
+  -n gpu-scheduler-tests --tail=10
 ```
 
-### 4.4 Check Webhook Processing
+**✅ Expected Log Results:**
+```
+Node: gpu-scheduler-cluster-worker, CUDA_VISIBLE_DEVICES: 0,1    (Pod 0 on node1)
+Node: gpu-scheduler-cluster-worker2, CUDA_VISIBLE_DEVICES: 2     (Pod 1 on node2)
+Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2 (Pod 2 on node3)
+Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3     (Pod 3 on node4)
+Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3     (Pod 4 on node4)
+```
+
+## Step 5: Generate Required Task Outputs
+
+### 5.1 Generate kubectl get pod -o wide -A Output
 ```bash
-# View webhook logs to see processing
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook --tail=10
+# Create outputs directory if it doesn't exist
+mkdir -p outputs
+
+# Generate the required kubectl output
+kubectl get pod -o wide -A > outputs/kubectl-get-pods-wide.txt
+
+# Verify the file was created
+cat outputs/kubectl-get-pods-wide.txt
 ```
 
-**✅ Expected Webhook Logs:**
-```
-2025-07-11 01:19:26,486 - root - INFO - Injecting CUDA_VISIBLE_DEVICES=0,1 for pod webhook-test-0 (index 0)
-2025-07-11 01:19:26,486 - root - INFO - Injecting CUDA_VISIBLE_DEVICES=2 for pod webhook-test-1 (index 1)
-2025-07-11 01:19:26,502 - root - INFO - Injecting CUDA_VISIBLE_DEVICES=0,1,2 for pod webhook-test-2 (index 2)
-```
+## Step 6: ArgoCD Deployment
 
-## Step 5: Verify End-to-End Results
-
-### 5.1 Check Complete Pod Status
+### 6.1 Install ArgoCD
 ```bash
-# Get comprehensive pod status
+# Create ArgoCD namespace
+kubectl create namespace argocd
+
+# Install ArgoCD
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for ArgoCD to be ready
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+
+# Get initial admin password
+ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo "ArgoCD admin password: $ARGOCD_PASSWORD"
+```
+
+### 6.2 Install ArgoCD CLI (Optional)
+```bash
+# Install ArgoCD CLI for better management
+curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+rm argocd-linux-amd64
+
+# Login to ArgoCD (use password from step 6.1)
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+argocd login localhost:8080 --username admin --password $ARGOCD_PASSWORD --insecure
+```
+
+### 6.3 Deploy ArgoCD Project
+```bash
+# Apply the ArgoCD project configuration
+kubectl apply -f argocd/gpu-scheduler-project.yaml
+
+# Verify project was created
+kubectl get appproject gpu-scheduler -n argocd
+```
+
+### 6.4 Register Local Cluster
+```bash
+# This step is ESSENTIAL for ApplicationSets to work!
+# Without this, ApplicationSets will generate 0 applications
+kubectl apply -f argocd/local-cluster-secret.yaml
+
+# Verify cluster secret was created
+kubectl get secret local-cluster -n argocd
+```
+
+### 6.5 Deploy ApplicationSet
+```bash
+# Deploy the complete ApplicationSet
+kubectl apply -f argocd/gpu-scheduler-complete-applicationset.yaml
+
+# Verify ApplicationSet was created
+kubectl get applicationset gpu-scheduler-complete -n argocd
+
+# Wait for applications to be generated (may take 30-60 seconds)
+sleep 60
+kubectl get applications -n argocd
+```
+
+### 6.6 Verify GitOps Deployment
+```bash
+# Check applications status
+kubectl get applications -n argocd
+
+# View detailed application status (if ArgoCD CLI is installed)
+argocd app list 2>/dev/null || echo "Use kubectl for status check"
+
+# Check that ArgoCD deployed the same pods we had before
+kubectl get pods -n gpu-scheduler-system
 kubectl get pods -n gpu-scheduler-tests -o wide
 
-# Check all test pod logs
-kubectl logs webhook-test-0 -n gpu-scheduler-tests
-kubectl logs webhook-test-1 -n gpu-scheduler-tests  
-kubectl logs webhook-test-2 -n gpu-scheduler-tests
-```
-
-### 5.2 Validate Environment Variables
-```bash
-# Verify environment variables are set correctly
-kubectl exec webhook-test-0 -n gpu-scheduler-tests -- env | grep CUDA
-kubectl exec webhook-test-1 -n gpu-scheduler-tests -- env | grep CUDA
-kubectl exec webhook-test-2 -n gpu-scheduler-tests -- env | grep CUDA
-```
-
-### 5.3 Generate Final Validation Report
-```bash
-# Create comprehensive status report
-echo "=== GPU Scheduler Validation Report ===" > validation-results.txt
-echo "Date: $(date)" >> validation-results.txt
-echo "" >> validation-results.txt
-
-echo "=== Cluster Status ===" >> validation-results.txt
-kubectl get nodes >> validation-results.txt
-echo "" >> validation-results.txt
-
-echo "=== Scheduler Status ===" >> validation-results.txt
-kubectl get pods -n gpu-scheduler-system >> validation-results.txt
-echo "" >> validation-results.txt
-
-echo "=== Test Pods Status ===" >> validation-results.txt
-kubectl get pods -n gpu-scheduler-tests -o wide >> validation-results.txt
-echo "" >> validation-results.txt
-
-echo "=== Environment Variable Validation ===" >> validation-results.txt
-echo "webhook-test-0:" >> validation-results.txt
-kubectl logs webhook-test-0 -n gpu-scheduler-tests | grep CUDA >> validation-results.txt
-echo "webhook-test-1:" >> validation-results.txt
-kubectl logs webhook-test-1 -n gpu-scheduler-tests | grep CUDA >> validation-results.txt
-echo "webhook-test-2:" >> validation-results.txt
-kubectl logs webhook-test-2 -n gpu-scheduler-tests | grep CUDA >> validation-results.txt
-
-# View the report
-cat validation-results.txt
-```
-
-**✅ Expected Final Results:**
-```
-=== GPU Scheduler Validation Report ===
-
-webhook-test-0: CUDA_VISIBLE_DEVICES=0,1    ✅ (Scheduled to node1)
-webhook-test-1: CUDA_VISIBLE_DEVICES=2      ✅ (Scheduled to node2)  
-webhook-test-2: CUDA_VISIBLE_DEVICES=0,1,2  ✅ (Scheduled to node3)
+# Verify GPU scheduling is still working
+kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" -n gpu-scheduler-tests --tail=5
 ```
