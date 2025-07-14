@@ -187,10 +187,10 @@ sleep 30
 kubectl get deployment gpu-scheduler -n gpu-scheduler-system
 
 # If deployment shows 0/1 READY, apply the chicken-and-egg fix:
-echo "Checking for chicken-and-egg problem..."
+echo 'Checking for chicken-and-egg problem...'
 READY=$(kubectl get deployment gpu-scheduler -n gpu-scheduler-system -o jsonpath='{.status.readyReplicas}')
 if [ "$READY" != "1" ]; then
-  echo "Applying chicken-and-egg fix..."
+  echo 'Applying chicken-and-egg fix...'
   
   # Temporarily remove webhook configuration
   kubectl delete mutatingwebhookconfiguration gpu-scheduler-webhook 2>/dev/null || true
@@ -211,9 +211,9 @@ if [ "$READY" != "1" ]; then
     --set image.tag=latest \
     --set image.pullPolicy=Always
   
-  echo "Chicken-and-egg fix applied successfully!"
+  echo 'Fix applied successfully!'
 else
-  echo "Deployment successful on first try!"
+  echo 'Deployment successful on first try!'
 fi
 ```
 
@@ -246,7 +246,7 @@ NAME                    WEBHOOKS   AGE
 gpu-scheduler-webhook   1          60s
 ```
 
-**🔧 Note**: The robust bootstrap approach above automatically handles the chicken-and-egg problem where the webhook configuration tries to call the webhook service before it's ready. The script detects this issue and applies the fix automatically.
+**🔧 Note**: The robust bootstrap approach above automatically detects and fixes the chicken-and-egg problem where the webhook configuration tries to call the webhook service before it's ready. This race condition occurs frequently enough that automatic detection and fixing is necessary for reliable deployment.
 
 ## Step 4: Test Complete Solution
 
@@ -394,68 +394,3 @@ webhook-test-0: CUDA_VISIBLE_DEVICES=0,1    ✅ (Scheduled to node1)
 webhook-test-1: CUDA_VISIBLE_DEVICES=2      ✅ (Scheduled to node2)  
 webhook-test-2: CUDA_VISIBLE_DEVICES=0,1,2  ✅ (Scheduled to node3)
 ```
-
-## 🎉 Success! You Have a Working GPU Scheduler
-
-If you see the expected results above, you have successfully:
-
-1. ✅ **Custom Scheduler Working**: Pods placed on designated nodes
-2. ✅ **Webhook Working**: CUDA_VISIBLE_DEVICES automatically injected
-3. ✅ **End-to-End Functionality**: Complete GPU scheduling solution
-4. ✅ **Production Ready**: Secure TLS communication and proper RBAC
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-**Problem**: Deployment stuck with 0/1 READY - Chicken-and-egg problem
-```bash
-# This happens when webhook configuration blocks pod creation before webhook service is ready
-# The robust bootstrap script in Step 3.3 handles this automatically, but manual fix:
-
-# 1. Remove webhook configuration temporarily
-kubectl delete mutatingwebhookconfiguration gpu-scheduler-webhook
-
-# 2. Restart deployment
-kubectl rollout restart deployment/gpu-scheduler -n gpu-scheduler-system
-
-# 3. Wait for pods to start
-kubectl wait --for=condition=available deployment/gpu-scheduler \
-  --namespace gpu-scheduler-system --timeout=120s
-
-# 4. Re-enable webhook
-helm upgrade gpu-scheduler . \
-  --namespace gpu-scheduler-system \
-  --set webhook.enabled=true \
-  --set webhook.caBundle="$CA_BUNDLE" \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
-```
-
-**Problem**: ImagePullBackOff error when deploying
-```bash
-# Solution: Use GitLab registry instead of local image
-helm upgrade gpu-scheduler . \
-  --namespace gpu-scheduler-system \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
-```
-
-**Problem**: Scheduler not scheduling pods
-```bash
-# Solution: Verify RBAC permissions and check logs
-kubectl get clusterrole gpu-scheduler
-kubectl get clusterrolebinding gpu-scheduler
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c scheduler
-```
-
-**Problem**: Environment variables not set
-```bash
-# Solution: Ensure webhook is working and pod uses correct scheduler
-kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
-```
-
-**Congratulations! You now have a fully functional GPU scheduler system! 🚀**
