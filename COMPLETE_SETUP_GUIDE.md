@@ -90,14 +90,6 @@ kubectl create namespace gpu-scheduler-tests
 kubectl get namespaces | grep gpu-scheduler
 ```
 
-**✅ Expected Result:**
-```
-gpu-scheduler-cluster-worker    Ready    <none>   2m    gpu-node-name=node1
-gpu-scheduler-cluster-worker2   Ready    <none>   2m    gpu-node-name=node2
-gpu-scheduler-cluster-worker3   Ready    <none>   2m    gpu-node-name=node3
-gpu-scheduler-cluster-worker4   Ready    <none>   2m    gpu-node-name=node4
-```
-
 ## Step 2: Build Container Images
 
 ### 2.1 Build GPU Scheduler Image

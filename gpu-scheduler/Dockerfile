@@ -1,5 +1,5 @@
 # Multi-stage build for GPU scheduler
-FROM python:3.9-slim as builder
+FROM python:3.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Final stage
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash scheduler
@@ -36,7 +36,7 @@ RUN mkdir -p /certs && chown scheduler:scheduler /certs
 
 # Set Python path to include user packages
 ENV PATH=/home/scheduler/.local/bin:$PATH
-ENV PYTHONPATH=/home/scheduler/.local/lib/python3.9/site-packages
+ENV PYTHONPATH=/home/scheduler/.local/lib/python3.11/site-packages
 
 # Switch to non-root user
 USER scheduler
