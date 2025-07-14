@@ -530,24 +530,4 @@ kubectl delete secret gpu-scheduler-webhook-tls -n gpu-scheduler-system
 kubectl apply -f certs/webhook-tls-secret.yaml
 ```
 
-### Getting Help
-
-- **Detailed Troubleshooting**: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- **Webhook Setup**: [docs/WEBHOOK_SETUP.md](docs/WEBHOOK_SETUP.md)
-- **Technical Details**: [docs/CUDA_ENVIRONMENT_SOLUTION.md](docs/CUDA_ENVIRONMENT_SOLUTION.md)
-
-## Next Steps
-
-### For Production Use
-1. Deploy on real GPU-enabled cluster
-2. Configure actual GPU node labels
-3. Set up monitoring and alerting
-4. Configure certificate rotation
-
-### For Development
-1. Modify scheduling logic in `gpu-scheduler/scheduler.py`
-2. Enhance webhook functionality in `gpu-scheduler/webhook_server.py`
-3. Add custom test scenarios
-4. Integrate with CI/CD pipeline
-
 **Congratulations! You now have a fully functional GPU scheduler system! 🚀**
