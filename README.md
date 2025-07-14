@@ -204,13 +204,44 @@ gpu-scheduling-map: |
 
 ```
 gpu-scheduler/
-├── gpu-scheduler/          # Scheduler service code
-├── gpu-scheduler-check/    # Test service code  
-├── charts/                 # Helm charts
-├── argocd/                 # GitOps configurations
-├── cluster/                # Local development setup
-├── outputs/                # Validation results
-└── scripts/                # Utility scripts
+├── .gitlab-ci.yml                    # CI/CD pipeline configuration
+├── README.md                         # Main documentation
+├── COMPLETE_SETUP_GUIDE.md           # Step-by-step setup guide
+├── gpu-scheduler/                    # Main scheduler service
+│   ├── Dockerfile                    # Container image build
+│   ├── scheduler.py                  # Custom scheduler logic
+│   ├── webhook_server.py             # Admission webhook server
+│   ├── health_server.py              # Health check endpoints
+│   ├── requirements.txt              # Python dependencies
+│   ├── generate-webhook-certs.sh     # TLS certificate generation
+│   ├── test_basic.py                 # Unit tests
+│   └── README.md                     # Service documentation
+├── gpu-scheduler-check/              # Test/validation service
+│   ├── Dockerfile                    # Container image build
+│   ├── main.py                       # Test service logic
+│   ├── requirements.txt              # Python dependencies
+│   └── README.md                     # Service documentation
+├── charts/                           # Helm deployment charts
+│   ├── gpu-scheduler/                # Main scheduler chart
+│   │   ├── Chart.yaml                # Chart metadata
+│   │   ├── values.yaml               # Default configuration
+│   │   ├── templates/                # Kubernetes manifests
+│   │   └── README.md                 # Chart documentation
+│   └── gpu-scheduler-check/          # Test service chart
+│       ├── Chart.yaml                # Chart metadata
+│       ├── values.yaml               # Default configuration
+│       ├── templates/                # Kubernetes manifests
+│       └── README.md                 # Chart documentation
+├── argocd/                           # GitOps deployment configs
+│   ├── gpu-scheduler-project.yaml           # ArgoCD project definition
+│   ├── gpu-scheduler-complete-applicationset.yaml  # Complete deployment
+│   ├── local-cluster-secret.yaml            # Local cluster registration
+│   ├── validate-applicationset.sh           # Validation script
+│   └── README.md                            # GitOps documentation
+├── cluster/                          # Local development setup
+│   ├── kind-config.yaml              # KinD cluster configuration
+│   └── setup-cluster.sh              # Cluster setup script
+└── outputs/                          # Test results and logs
 ```
 
 ## Development
@@ -225,20 +256,6 @@ cd cluster
 ```
 
 This creates a 5-node cluster (1 control-plane + 4 workers) with proper labels.
-
-### Building and Testing
-
-```bash
-# Build images
-./scripts/build-images.sh
-
-# Run tests
-cd gpu-scheduler
-python test_basic.py
-
-# Deploy locally
-./scripts/deploy-local.sh
-```
 
 ### GitOps Deployment
 
@@ -301,6 +318,15 @@ gpuScheduling:
     - podIndex: 1
       nodeName: node2
       gpuDevices: "2"
+    - podIndex: 2
+      nodeName: node3
+      gpuDevices: "0,1,2"
+    - podIndex: 3
+      nodeName: node4
+      gpuDevices: "3"
+    - podIndex: 4
+      nodeName: node4
+      gpuDevices: "3"
 
 testService:
   logInterval: 10

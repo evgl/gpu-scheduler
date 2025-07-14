@@ -16,8 +16,9 @@ spec:
         syncWave: "1"
         values: |
           image:
-            repository: gpu-scheduler
+            repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler
             tag: latest
+            pullPolicy: Always
           
           scheduler:
             name: gpu-scheduler
@@ -46,8 +47,9 @@ spec:
           replicaCount: 5
           
           image:
-            repository: gpu-scheduler-check
+            repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check
             tag: latest
+            pullPolicy: Always
           
           gpuScheduling:
             enabled: true

@@ -117,8 +117,11 @@ docker images | grep gpu-scheduler-check
 ```
 
 ### 2.3 Load Images into KinD Cluster
+
+**Note**: This step is **only required for local KinD development**. When using ArgoCD with CI-built images, Kubernetes will automatically pull images from the GitLab Container Registry.
+
 ```bash
-# Load images into KinD cluster
+# Load images into KinD cluster (LOCAL DEVELOPMENT ONLY)
 kind load docker-image gpu-scheduler:latest --name gpu-scheduler-cluster
 kind load docker-image gpu-scheduler-check:latest --name gpu-scheduler-cluster
 
@@ -131,6 +134,11 @@ docker exec -it gpu-scheduler-cluster-control-plane crictl images | grep gpu-sch
 gpu-scheduler        latest    abc123def456    2 minutes ago    300MB
 gpu-scheduler-check  latest    def456abc123    1 minute ago     250MB
 ```
+
+**For Production with GitLab CI + ArgoCD:**
+- Images are automatically built and pushed to: `registry.gitlab.com/evgenii19/gpu-scheduler/`
+- ArgoCD pulls images automatically from the registry
+- No manual loading required
 
 ## Step 3: Deploy GPU Scheduler (Basic)
 
@@ -458,6 +466,23 @@ kubectl apply -f argocd/local-cluster-secret.yaml
 - Without this, you'll see "generated 0 applications" errors
 
 ### 8.3 Deploy ArgoCD Resources
+
+**Container Registry Configuration:**
+The ApplicationSet is configured to pull images from GitLab Container Registry:
+```yaml
+# GPU Scheduler Image
+image:
+  repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler
+  tag: latest
+  pullPolicy: Always
+
+# GPU Scheduler Check Image  
+image:
+  repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check
+  tag: latest
+  pullPolicy: Always
+```
+
 ```bash
 # Apply the ArgoCD project
 kubectl apply -f argocd/gpu-scheduler-project.yaml
