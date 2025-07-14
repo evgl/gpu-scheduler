@@ -279,10 +279,10 @@ kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
   -n gpu-scheduler-tests --tail=10
 
 # For the first pod on node4 (pod 3)
-kubectl logs gpu-test-gpu-scheduler-check-3 -n gpu-scheduler-tests
+kubectl logs gpu-test-service-gpu-scheduler-check-3 -n gpu-scheduler-tests
 
 # For the second pod on node4 (pod 4)  
-kubectl logs gpu-test-gpu-scheduler-check-4 -n gpu-scheduler-tests
+kubectl logs gpu-test-service-gpu-scheduler-check-4 -n gpu-scheduler-tests
 ```
 
 **✅ Expected Log Results:**

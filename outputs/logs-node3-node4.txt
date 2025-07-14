@@ -1,36 +1,36 @@
 === LOGS FROM PODS ON NODE3 (gpu-scheduler-cluster-worker3) ===
-2025-07-14 11:52:16,568 - __main__ - INFO - GPU Scheduler Check service starting...
-2025-07-14 11:52:16,569 - __main__ - INFO - Log interval: 10 seconds
-2025-07-14 11:52:16,570 - __main__ - INFO - Environment validation passed
-2025-07-14 11:52:16,570 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-2025-07-14 11:52:26,570 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-2025-07-14 11:52:36,571 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-2025-07-14 11:52:46,574 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-2025-07-14 11:52:56,575 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-2025-07-14 11:53:06,576 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:24:21,129 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:24:31,130 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:24:41,133 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:24:51,135 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:01,137 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:11,138 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:21,144 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:31,146 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:41,153 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
+2025-07-14 14:25:51,154 - __main__ - INFO - Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
 
 === LOGS FROM PODS ON NODE4 (gpu-scheduler-cluster-worker4) ===
-Pod 3 logs:
-2025-07-14 11:52:01,373 - __main__ - INFO - GPU Scheduler Check service starting...
-2025-07-14 11:52:01,421 - __main__ - INFO - Log interval: 10 seconds
-2025-07-14 11:52:01,422 - __main__ - INFO - Environment validation passed
-2025-07-14 11:52:01,422 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:11,426 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:21,432 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:31,432 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:41,434 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:51,436 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:53:01,437 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:53:11,439 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+Pod 3 logs (gpu-test-service-gpu-scheduler-check-3):
+2025-07-14 14:24:25,715 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:35,718 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:45,720 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:55,723 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:05,724 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:15,726 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:25,728 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:35,729 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:45,731 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:55,734 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
 
-Pod 4 logs:
-2025-07-14 11:52:09,447 - __main__ - INFO - GPU Scheduler Check service starting...
-2025-07-14 11:52:09,448 - __main__ - INFO - Log interval: 10 seconds
-2025-07-14 11:52:09,448 - __main__ - INFO - Environment validation passed
-2025-07-14 11:52:09,474 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:19,475 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:29,475 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:39,477 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:49,478 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:52:59,479 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-2025-07-14 11:53:09,481 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+Pod 4 logs (gpu-test-service-gpu-scheduler-check-4):
+2025-07-14 14:24:23,399 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:33,400 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:43,403 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:24:53,404 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:03,408 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:13,409 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:23,411 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:33,411 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:43,415 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
+2025-07-14 14:25:53,417 - __main__ - INFO - Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
