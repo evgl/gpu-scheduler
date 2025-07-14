@@ -51,20 +51,7 @@ docker build -t gpu-scheduler-check:latest .
 
 ### 3. Deploy with Helm
 
-**Option A: Basic Deployment (Scheduler Only)**
-```bash
-# Install GPU scheduler without webhook
-helm install gpu-scheduler charts/gpu-scheduler \
-  --namespace gpu-scheduler-system \
-  --create-namespace
-
-# Install test service
-helm install gpu-test charts/gpu-scheduler-check \
-  --namespace gpu-scheduler-tests \
-  --create-namespace
-```
-
-**Option B: Full Deployment (Scheduler + Webhook)**
+** Full Deployment (Scheduler + Webhook)**
 ```bash
 # Generate TLS certificates for webhook
 cd gpu-scheduler
