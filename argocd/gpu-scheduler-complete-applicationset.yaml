@@ -38,7 +38,7 @@ spec:
           - key: node-role.kubernetes.io/control-plane
             operator: Exists
             effect: NoSchedule
-      
+        
       - component: test-service
         namespace: gpu-scheduler-tests
         path: charts/gpu-scheduler-check
@@ -95,11 +95,13 @@ spec:
     spec:
       project: gpu-scheduler
       source:
-        repoURL: git@gitlab.com:evgenii19/gpu-scheduler.git
+        repoURL: https://gitlab.com/evgenii19/gpu-scheduler.git
         targetRevision: HEAD
         path: '{{path}}'
         helm:
           releaseName: 'gpu-{{component}}'
+          valueFiles:
+          - values.yaml
           values: '{{values}}'
       destination:
         server: https://kubernetes.default.svc

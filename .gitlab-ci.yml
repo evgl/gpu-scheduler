@@ -126,6 +126,10 @@ security-scan:
 helm-validate:
   stage: helm-lint
   image: alpine/helm:latest
+  before_script:
+    - set -e
+    - helm version
+    - echo "Validating helm charts..."
   script:
     - helm lint charts/gpu-scheduler
     - helm lint charts/gpu-scheduler-check

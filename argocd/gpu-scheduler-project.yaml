@@ -11,6 +11,7 @@ spec:
   # Source repositories
   sourceRepos:
   - 'git@gitlab.com:evgenii19/gpu-scheduler.git'
+  - 'https://gitlab.com/evgenii19/gpu-scheduler.git'
   - 'https://charts.helm.sh/stable'
   
   # Destination clusters and namespaces
@@ -51,6 +52,8 @@ spec:
     kind: Deployment
   - group: apps
     kind: ReplicaSet
+  - group: apps
+    kind: StatefulSet
   - group: ''
     kind: Pod
   - group: rbac.authorization.k8s.io

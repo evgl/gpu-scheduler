@@ -30,70 +30,6 @@ For a comprehensive step-by-step guide from scratch to working system, see: **[C
 - ArgoCD (optional, for GitOps deployment)
 - Docker (for building images)
 
-### 1. Clone Repository
-
-```bash
-git clone https://gitlab.com/evgenii19/gpu-scheduler.git
-cd gpu-scheduler
-```
-
-### 2. Build Images
-
-```bash
-# Build GPU scheduler image
-cd gpu-scheduler
-docker build -t gpu-scheduler:latest .
-
-# Build test service image  
-cd ../gpu-scheduler-check
-docker build -t gpu-scheduler-check:latest .
-```
-
-### 3. Deploy with Helm
-
-** Full Deployment (Scheduler + Webhook)**
-```bash
-# Generate TLS certificates for webhook
-cd gpu-scheduler
-./generate-webhook-certs.sh
-kubectl apply -f certs/webhook-tls-secret.yaml
-
-# Get CA bundle
-CA_BUNDLE=$(cat certs/ca.crt | base64 -w 0)
-
-# Install GPU scheduler with webhook
-helm install gpu-scheduler charts/gpu-scheduler \
-  --namespace gpu-scheduler-system \
-  --create-namespace \
-  --set webhook.enabled=true \
-  --set webhook.caBundle=$CA_BUNDLE
-
-# Install test service
-helm install gpu-test charts/gpu-scheduler-check \
-  --namespace gpu-scheduler-tests \
-  --create-namespace
-```
-
-### 4. Verify Deployment
-
-```bash
-# Check scheduler is running (should show 2/2 if webhook enabled, 1/1 if not)
-kubectl get pods -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system
-
-# Check webhook configuration (if enabled)
-kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
-
-# Check test service logs
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler-check -n gpu-scheduler-tests -f
-
-# Expected output with webhook:
-# Node: gpu-scheduler-cluster-worker, CUDA_VISIBLE_DEVICES: 0,1
-# Node: gpu-scheduler-cluster-worker2, CUDA_VISIBLE_DEVICES: 2
-# Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: 0,1,2
-# Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-# Node: gpu-scheduler-cluster-worker4, CUDA_VISIBLE_DEVICES: 3
-```
-
 ## Architecture
 
 ```
@@ -156,7 +92,7 @@ spec:
   - name: gpu-app
     image: nvidia/cuda:11.0-base
     command: ["nvidia-smi"]
-    # CUDA_VISIBLE_DEVICES automatically injected by webhook!
+    # CUDA_VISIBLE_DEVICES automatically injected!
 ```
 
 ### Annotation Format
@@ -233,62 +169,6 @@ gpu-scheduler/
 └── outputs/                          # Test results and logs
 ```
 
-## Development
-
-### Local Cluster Setup
-
-Create a local KinD cluster with GPU scheduler configuration:
-
-```bash
-cd cluster
-./setup-cluster.sh
-```
-
-This creates a 5-node cluster (1 control-plane + 4 workers) with proper labels.
-
-### GitOps Deployment
-
-Deploy using ArgoCD ApplicationSets:
-
-```bash
-# Apply ArgoCD project
-kubectl apply -f argocd/gpu-scheduler-project.yaml
-
-# Deploy applications
-kubectl apply -f argocd/gpu-scheduler-complete-applicationset.yaml
-
-# Monitor deployment
-kubectl get applications -n argocd
-```
-
-## Configuration
-
-### Scheduler Configuration
-
-Configure the scheduler via Helm values:
-
-```yaml
-# values.yaml
-scheduler:
-  name: gpu-scheduler
-
-# Enable webhook for automatic CUDA_VISIBLE_DEVICES injection
-webhook:
-  enabled: true
-  caBundle: "<base64-encoded-ca-certificate>"
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
-    
-nodeSelector:
-  node-role.kubernetes.io/control-plane: ""
-```
-
 ### Test Service Configuration
 
 Configure test service behavior:
@@ -332,7 +212,7 @@ The scheduler provides health endpoints:
 kubectl port-forward svc/gpu-scheduler 8080:8080 -n gpu-scheduler-system
 curl http://localhost:8080/health
 
-# Check webhook health (if enabled)
+# Check webhook health
 kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
 ```
 

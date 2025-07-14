@@ -272,21 +272,17 @@ kubectl get pods -l "app.kubernetes.io/name=gpu-scheduler-check" \
   -n gpu-scheduler-tests -o wide
 ```
 
-**✅ Expected Result:**
-```
-NAME                             READY   STATUS    RESTARTS   AGE   NODE
-gpu-test-gpu-scheduler-check-0   1/1     Running   0          60s   gpu-scheduler-cluster-worker   
-gpu-test-gpu-scheduler-check-1   1/1     Running   0          60s   gpu-scheduler-cluster-worker2  
-gpu-test-gpu-scheduler-check-2   1/1     Running   0          60s   gpu-scheduler-cluster-worker3  
-gpu-test-gpu-scheduler-check-3   1/1     Running   0          60s   gpu-scheduler-cluster-worker4  
-gpu-test-gpu-scheduler-check-4   1/1     Running   0          60s   gpu-scheduler-cluster-worker4  
-```
-
 ### 4.3 Verify GPU Scheduling Results
 ```bash
 # Check the logs to verify CUDA_VISIBLE_DEVICES was set correctly
 kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
   -n gpu-scheduler-tests --tail=10
+
+# For the first pod on node4 (pod 3)
+kubectl logs gpu-test-gpu-scheduler-check-3 -n gpu-scheduler-tests
+
+# For the second pod on node4 (pod 4)  
+kubectl logs gpu-test-gpu-scheduler-check-4 -n gpu-scheduler-tests
 ```
 
 **✅ Expected Log Results:**
