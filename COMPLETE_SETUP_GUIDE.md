@@ -168,7 +168,7 @@ CA_BUNDLE=$(cat certs/ca.crt | base64 -w 0)
 echo "CA Bundle length: ${#CA_BUNDLE} characters"
 ```
 
-### 3.3 Deploy Scheduler with Webhook
+### 3.3 Deploy Scheduler with Webhook (Robust Bootstrap)
 ```bash
 # Navigate to Helm chart directory
 cd ../charts/gpu-scheduler
@@ -182,14 +182,44 @@ helm install gpu-scheduler . \
   --set image.tag=latest \
   --set image.pullPolicy=Always
 
-# Wait for deployment to be ready
-kubectl wait --for=condition=available deployment/gpu-scheduler \
-  --namespace gpu-scheduler-system --timeout=60s
+# Check deployment status after 30 seconds
+sleep 30
+kubectl get deployment gpu-scheduler -n gpu-scheduler-system
+
+# If deployment shows 0/1 READY, apply the chicken-and-egg fix:
+echo "Checking for chicken-and-egg problem..."
+READY=$(kubectl get deployment gpu-scheduler -n gpu-scheduler-system -o jsonpath='{.status.readyReplicas}')
+if [ "$READY" != "1" ]; then
+  echo "Applying chicken-and-egg fix..."
+  
+  # Temporarily remove webhook configuration
+  kubectl delete mutatingwebhookconfiguration gpu-scheduler-webhook 2>/dev/null || true
+  
+  # Restart deployment to allow pods to start
+  kubectl rollout restart deployment/gpu-scheduler -n gpu-scheduler-system
+  
+  # Wait for pods to be ready
+  kubectl wait --for=condition=available deployment/gpu-scheduler \
+    --namespace gpu-scheduler-system --timeout=120s
+  
+  # Re-enable webhook configuration
+  helm upgrade gpu-scheduler . \
+    --namespace gpu-scheduler-system \
+    --set webhook.enabled=true \
+    --set webhook.caBundle="$CA_BUNDLE" \
+    --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+    --set image.tag=latest \
+    --set image.pullPolicy=Always
+  
+  echo "Chicken-and-egg fix applied successfully!"
+else
+  echo "Deployment successful on first try!"
+fi
 ```
 
 ### 3.4 Verify Scheduler and Webhook Deployment
 ```bash
-# Check scheduler pod now has 2/2 containers (scheduler + webhook)
+# Check scheduler pod has 2/2 containers (scheduler + webhook)
 kubectl get pods -n gpu-scheduler-system
 
 # Verify webhook configuration exists
@@ -215,6 +245,8 @@ gpu-scheduler-xxxxx-xxxxx        2/2     Running   0          60s
 NAME                    WEBHOOKS   AGE
 gpu-scheduler-webhook   1          60s
 ```
+
+**🔧 Note**: The robust bootstrap approach above automatically handles the chicken-and-egg problem where the webhook configuration tries to call the webhook service before it's ready. The script detects this issue and applies the fix automatically.
 
 ## Step 4: Test Complete Solution
 
@@ -371,3 +403,59 @@ If you see the expected results above, you have successfully:
 2. ✅ **Webhook Working**: CUDA_VISIBLE_DEVICES automatically injected
 3. ✅ **End-to-End Functionality**: Complete GPU scheduling solution
 4. ✅ **Production Ready**: Secure TLS communication and proper RBAC
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+**Problem**: Deployment stuck with 0/1 READY - Chicken-and-egg problem
+```bash
+# This happens when webhook configuration blocks pod creation before webhook service is ready
+# The robust bootstrap script in Step 3.3 handles this automatically, but manual fix:
+
+# 1. Remove webhook configuration temporarily
+kubectl delete mutatingwebhookconfiguration gpu-scheduler-webhook
+
+# 2. Restart deployment
+kubectl rollout restart deployment/gpu-scheduler -n gpu-scheduler-system
+
+# 3. Wait for pods to start
+kubectl wait --for=condition=available deployment/gpu-scheduler \
+  --namespace gpu-scheduler-system --timeout=120s
+
+# 4. Re-enable webhook
+helm upgrade gpu-scheduler . \
+  --namespace gpu-scheduler-system \
+  --set webhook.enabled=true \
+  --set webhook.caBundle="$CA_BUNDLE" \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
+```
+
+**Problem**: ImagePullBackOff error when deploying
+```bash
+# Solution: Use GitLab registry instead of local image
+helm upgrade gpu-scheduler . \
+  --namespace gpu-scheduler-system \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
+```
+
+**Problem**: Scheduler not scheduling pods
+```bash
+# Solution: Verify RBAC permissions and check logs
+kubectl get clusterrole gpu-scheduler
+kubectl get clusterrolebinding gpu-scheduler
+kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c scheduler
+```
+
+**Problem**: Environment variables not set
+```bash
+# Solution: Ensure webhook is working and pod uses correct scheduler
+kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
+kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
+```
+
+**Congratulations! You now have a fully functional GPU scheduler system! 🚀**
