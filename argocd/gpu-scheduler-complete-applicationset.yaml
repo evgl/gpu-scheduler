@@ -1,0 +1,135 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gpu-scheduler-complete
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: gpu-scheduler-complete
+    app.kubernetes.io/component: applicationset
+spec:
+  generators:
+  - list:
+      elements:
+      - component: scheduler
+        namespace: gpu-scheduler-system
+        path: charts/gpu-scheduler
+        syncWave: "1"
+        values: |
+          image:
+            repository: gpu-scheduler
+            tag: latest
+          
+          scheduler:
+            name: gpu-scheduler
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          nodeSelector:
+            node-role.kubernetes.io/control-plane: ""
+          
+          tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+      
+      - component: test-service
+        namespace: gpu-scheduler-tests
+        path: charts/gpu-scheduler-check
+        syncWave: "2"
+        values: |
+          replicaCount: 5
+          
+          image:
+            repository: gpu-scheduler-check
+            tag: latest
+          
+          gpuScheduling:
+            enabled: true
+            schedulerName: gpu-scheduler
+            schedulingMap:
+              - podIndex: 0
+                nodeName: node1
+                gpuDevices: "0,1"
+              - podIndex: 1
+                nodeName: node2
+                gpuDevices: "2"
+              - podIndex: 2
+                nodeName: node3
+                gpuDevices: "0,1,2"
+              - podIndex: 3
+                nodeName: node4
+                gpuDevices: "3"
+              - podIndex: 4
+                nodeName: node4
+                gpuDevices: "3"
+          
+          testService:
+            logInterval: 10
+          
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+  template:
+    metadata:
+      name: 'local-cluster-gpu-{{component}}'
+      labels:
+        app.kubernetes.io/name: gpu-scheduler
+        app.kubernetes.io/component: '{{component}}'
+        app.kubernetes.io/instance: local-cluster
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{syncWave}}'
+        argocd.argoproj.io/compare-options: ServerSideDiff=true,IncludeMutationWebhook=true
+    spec:
+      project: gpu-scheduler
+      source:
+        repoURL: git@gitlab.com:evgenii19/gpu-scheduler.git
+        targetRevision: HEAD
+        path: '{{path}}'
+        helm:
+          releaseName: 'gpu-{{component}}'
+          values: '{{values}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+        - CreateNamespace=true
+        - PrunePropagationPolicy=foreground
+        - PruneLast=true
+        - ApplyOutOfSyncOnly=true
+        - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      revisionHistoryLimit: 3
+      ignoreDifferences:
+      - group: apps
+        kind: Deployment
+        jsonPointers:
+        - /spec/replicas
+      - group: ""
+        kind: Pod
+        jsonPointers:
+        - /metadata/annotations/gpu-scheduling-map
+        - /spec/nodeName
+      info:
+      - name: 'Component'
+        value: '{{component}}'

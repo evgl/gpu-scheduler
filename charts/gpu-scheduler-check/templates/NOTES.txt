@@ -1,0 +1,33 @@
+1. GPU Scheduler Check service has been deployed successfully!
+
+2. Check the test pods status:
+   kubectl get pods -l "app.kubernetes.io/name={{ include "gpu-scheduler-check.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+3. View test service logs to see GPU assignments:
+   kubectl logs -l "app.kubernetes.io/name={{ include "gpu-scheduler-check.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -f
+
+4. Check which nodes the pods are scheduled on:
+   kubectl get pods -l "app.kubernetes.io/name={{ include "gpu-scheduler-check.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o wide
+
+5. Expected log format from each pod:
+   Node: <node_name>, CUDA_VISIBLE_DEVICES: <gpu_devices>
+
+6. GPU Scheduling Configuration:
+   - Scheduler Name: {{ .Values.gpuScheduling.schedulerName }}
+   - Replicas: {{ .Values.replicaCount }}
+   - Log Interval: {{ .Values.testService.logInterval }} seconds
+
+7. Scheduled assignments:
+{{- range .Values.gpuScheduling.schedulingMap }}
+   - Pod {{ .podIndex }}: {{ .nodeName }} with GPUs {{ .gpuDevices }}
+{{- end }}
+
+8. To verify GPU scheduler is working correctly:
+   - Check that pods are placed on the expected nodes
+   - Verify CUDA_VISIBLE_DEVICES matches the configuration
+   - Ensure all pods are logging continuously
+
+For troubleshooting:
+- If pods are not scheduled, check if the GPU scheduler is running
+- If CUDA_VISIBLE_DEVICES is "not-set", the scheduler may not be working
+- Check scheduler logs for any errors

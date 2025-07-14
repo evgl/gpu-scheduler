@@ -1,0 +1,45 @@
+1. Get the GPU scheduler status by running these commands:
+  kubectl get deployment {{ include "gpu-scheduler.fullname" . }} -n {{ .Release.Namespace }}
+  kubectl get pods -l "app.kubernetes.io/name={{ include "gpu-scheduler.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Release.Namespace }}
+
+2. Verify the scheduler is registered:
+  kubectl get events -n {{ .Release.Namespace }} | grep {{ .Values.scheduler.name }}
+
+3. Check the webhook is configured:
+  kubectl get mutatingwebhookconfiguration {{ include "gpu-scheduler.fullname" . }}-webhook
+
+4. To use the GPU scheduler, add the following to your pod spec:
+  ```yaml
+  spec:
+    schedulerName: {{ .Values.scheduler.name }}
+  ```
+
+5. To enable GPU scheduling, add the gpu-scheduling-map annotation:
+  ```yaml
+  metadata:
+    annotations:
+      gpu-scheduling-map: |
+        0=node1:0,1
+        1=node2:2
+        2=node3:0,1,2
+  ```
+
+  Format: <pod-index>=<node-name>:<gpu-devices>
+  - pod-index: The index of the pod (0, 1, 2, ...)
+  - node-name: The target node name
+  - gpu-devices: Comma-separated GPU device IDs for CUDA_VISIBLE_DEVICES
+
+6. The webhook will automatically inject CUDA_VISIBLE_DEVICES environment variable based on the annotation.
+
+7. Monitor scheduler logs:
+  kubectl logs -l "app.kubernetes.io/name={{ include "gpu-scheduler.name" . }}" -n {{ .Release.Namespace }} -c scheduler
+
+8. Monitor webhook logs:
+  kubectl logs -l "app.kubernetes.io/name={{ include "gpu-scheduler.name" . }}" -n {{ .Release.Namespace }} -c webhook
+
+{{- if .Values.nodeSelector }}
+Note: The scheduler is configured to run on nodes matching:
+  {{- range $key, $value := .Values.nodeSelector }}
+  {{ $key }}: {{ $value }}
+  {{- end }}
+{{- end }}

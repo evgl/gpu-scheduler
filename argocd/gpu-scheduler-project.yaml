@@ -1,0 +1,96 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gpu-scheduler
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: gpu-scheduler-project
+spec:
+  description: "GPU Scheduler System Project"
+  
+  # Source repositories
+  sourceRepos:
+  - 'git@gitlab.com:evgenii19/gpu-scheduler.git'
+  - 'https://charts.helm.sh/stable'
+  
+  # Destination clusters and namespaces
+  destinations:
+  - namespace: 'gpu-scheduler-system'
+    server: '*'
+  - namespace: 'gpu-scheduler-tests'
+    server: '*'
+  - namespace: 'kube-system'
+    server: '*'
+  
+  # Cluster resource allow list
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+  - group: admissionregistration.k8s.io
+    kind: ValidatingAdmissionWebhook
+  - group: admissionregistration.k8s.io
+    kind: MutatingAdmissionWebhook
+  
+  # Namespace resource allow list
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: ConfigMap
+  - group: ''
+    kind: Secret
+  - group: ''
+    kind: Service
+  - group: ''
+    kind: ServiceAccount
+  - group: apps
+    kind: Deployment
+  - group: apps
+    kind: ReplicaSet
+  - group: ''
+    kind: Pod
+  - group: rbac.authorization.k8s.io
+    kind: Role
+  - group: rbac.authorization.k8s.io
+    kind: RoleBinding
+  - group: networking.k8s.io
+    kind: NetworkPolicy
+  - group: policy
+    kind: PodDisruptionBudget
+  - group: autoscaling
+    kind: HorizontalPodAutoscaler
+  
+  # Roles for project access
+  roles:
+  - name: gpu-scheduler-admin
+    description: "Full access to GPU scheduler applications"
+    policies:
+    - p, proj:gpu-scheduler:gpu-scheduler-admin, applications, *, gpu-scheduler/*, allow
+    - p, proj:gpu-scheduler:gpu-scheduler-admin, repositories, *, *, allow
+    - p, proj:gpu-scheduler:gpu-scheduler-admin, certificates, *, *, allow
+    groups:
+    - gpu-scheduler-admins
+  
+  - name: gpu-scheduler-readonly
+    description: "Read-only access to GPU scheduler applications"
+    policies:
+    - p, proj:gpu-scheduler:gpu-scheduler-readonly, applications, get, gpu-scheduler/*, allow
+    - p, proj:gpu-scheduler:gpu-scheduler-readonly, applications, sync, gpu-scheduler/*, allow
+    groups:
+    - gpu-scheduler-users
+  
+  # Sync windows (optional)
+  syncWindows:
+  - kind: allow
+    schedule: '* * * * *'
+    duration: 24h
+    applications:
+    - '*'
+    manualSync: true
+  
+  # Signature keys (optional)
+  signatureKeys: []

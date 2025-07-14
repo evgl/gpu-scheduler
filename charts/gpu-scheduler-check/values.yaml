@@ -1,0 +1,86 @@
+# Default values for gpu-scheduler-check
+# This is a YAML-formatted file.
+
+replicaCount: 3
+
+image:
+  repository: gpu-scheduler-check
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# GPU Scheduling configuration
+gpuScheduling:
+  enabled: true
+  schedulerName: "gpu-scheduler"
+  # GPU scheduling map - example configuration
+  # This will be used to generate the annotation
+  schedulingMap:
+    - podIndex: 0
+      nodeName: "node1"
+      gpuDevices: "0,1"
+    - podIndex: 1
+      nodeName: "node2"
+      gpuDevices: "2"
+    - podIndex: 2
+      nodeName: "node3"
+      gpuDevices: "0,1,2"
+
+# Test service configuration
+testService:
+  logInterval: 10
+  # Additional environment variables
+  env: []
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 65534
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Service needs to write logs
+  runAsNonRoot: true
+  runAsUser: 65534
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Additional labels to add to all resources
+commonLabels: {}
+
+# Additional annotations to add to all resources
+commonAnnotations: {}
