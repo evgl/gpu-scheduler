@@ -31,15 +31,19 @@ test-scheduler:
   before_script:
     - cd gpu-scheduler
     - pip install -r requirements.txt
+    - pip install pytest  # For JUnit XML generation
   script:
     - python -m py_compile scheduler.py health_server.py webhook_server.py
     - python test_basic.py
+    # Generate JUnit XML format for GitLab integration
+    - pytest test_basic.py --junitxml=test-results.xml --tb=short -v || echo "Basic tests completed"
   artifacts:
     reports:
       junit: gpu-scheduler/test-results.xml
     paths:
       - gpu-scheduler/test-results.xml
     expire_in: 1 week
+    when: always
   rules:
     - changes:
         - gpu-scheduler/**/*
@@ -102,13 +106,14 @@ security-scan:
     - pip install bandit safety
     - echo "Running security scans on source code..."
     - bandit -r gpu-scheduler/ -f json -o bandit-report.json || true
-    - safety check --json --output safety-report.json || true
+    - safety check --output json > safety-report.json || true
     - echo "Security scans completed"
   artifacts:
     paths:
       - bandit-report.json
       - safety-report.json
     expire_in: 1 week
+    when: always
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   allow_failure: true
