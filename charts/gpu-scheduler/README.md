@@ -1,29 +1,20 @@
 # GPU Scheduler Helm Chart
 
-Production-ready Helm chart for deploying the GPU scheduler with optional mutating admission webhook.
+Production-ready Helm chart for deploying the GPU scheduler with mutating admission webhook for complete GPU scheduling functionality.
 
 ## Overview
 
 This Helm chart deploys a complete GPU scheduling solution consisting of:
 
 1. **Custom Scheduler**: Places pods on designated nodes based on annotations
-2. **Mutating Admission Webhook** (optional): Automatically injects CUDA_VISIBLE_DEVICES environment variables
+2. **Mutating Admission Webhook** (recommended): Automatically injects CUDA_VISIBLE_DEVICES environment variables
 3. **TLS Security**: Secure webhook communication with certificate management
+
+**Recommended Usage**: Deploy with webhook enabled for full GPU scheduling functionality including automatic environment variable injection.
 
 ## Quick Start
 
-### Basic Deployment (Scheduler Only)
-
-```bash
-helm install gpu-scheduler . \
-  --namespace gpu-scheduler-system \
-  --create-namespace \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
-```
-
-### Full Deployment (Scheduler + Webhook)
+### Recommended: Deploy with Webhook (Full Functionality)
 
 ```bash
 # Generate TLS certificates
@@ -34,7 +25,7 @@ kubectl apply -f certs/webhook-tls-secret.yaml
 # Get CA bundle
 CA_BUNDLE=$(cat certs/ca.crt | base64 -w 0)
 
-# Deploy with webhook
+# Deploy with webhook enabled
 helm install gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --create-namespace \
@@ -45,9 +36,25 @@ helm install gpu-scheduler . \
   --set image.pullPolicy=Always
 ```
 
+### Alternative: Scheduler Only (Limited Functionality)
+
+**Note**: This deployment lacks automatic CUDA_VISIBLE_DEVICES injection. Only use for testing or when webhook is not needed.
+
+```bash
+helm install gpu-scheduler . \
+  --namespace gpu-scheduler-system \
+  --create-namespace \
+  --set webhook.enabled=false \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
+```
+
 ## Configuration
 
 **Note**: The examples above use the GitLab Container Registry (`registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler`) which is the recommended image source for production deployments.
+
+**Recommendation**: Deploy with webhook enabled for full GPU scheduling functionality including automatic CUDA_VISIBLE_DEVICES injection.
 
 ### Values.yaml Options
 
@@ -56,10 +63,10 @@ helm install gpu-scheduler . \
 scheduler:
   name: gpu-scheduler
 
-# Webhook configuration (optional)
+# Webhook configuration (recommended)
 webhook:
-  enabled: false                    # Set to true to enable webhook
-  caBundle: ""                      # Base64-encoded CA certificate
+  enabled: true                     # Recommended: enable webhook for full functionality
+  caBundle: ""                      # Base64-encoded CA certificate (required when enabled)
   failurePolicy: Ignore             # Webhook failure handling
 
 # Container image
@@ -93,14 +100,14 @@ tolerations:
 ## Components
 
 ### Deployment
-- **Pod**: Runs both scheduler and webhook containers (if enabled)
+- **Pod**: Runs both scheduler and webhook containers (recommended configuration)
 - **Containers**: 
   - `scheduler`: Main scheduling logic
-  - `webhook`: Environment variable injection (optional)
+  - `webhook`: Automatic CUDA_VISIBLE_DEVICES injection (recommended)
 
 ### Services
 - **Health Service**: Port 8080 for health checks
-- **Webhook Service**: Port 443 for webhook requests (if enabled)
+- **Webhook Service**: Port 443 for webhook requests (when enabled)
 
 ### RBAC
 - **ServiceAccount**: `gpu-scheduler`
@@ -175,7 +182,7 @@ curl http://localhost:8080/health
 # Check scheduler logs
 kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c scheduler
 
-# Check webhook logs (if enabled)
+# Check webhook logs (recommended deployment)
 kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
 ```
 
@@ -204,9 +211,10 @@ kubectl exec <test-pod> -- env | grep CUDA_VISIBLE_DEVICES
 - Review webhook logs for errors
 
 **Environment variables not set:**
-- Ensure webhook is enabled and configured
+- Ensure webhook is enabled and configured (recommended deployment)
 - Verify pod uses `schedulerName: gpu-scheduler`
 - Check annotation format is correct
+- Confirm TLS certificates are properly configured
 
 See [../../docs/TROUBLESHOOTING.md](../../docs/TROUBLESHOOTING.md) for detailed troubleshooting guide.
 
@@ -243,19 +251,26 @@ helm install gpu-scheduler . \
 
 ## Upgrade
 
-```bash
-# Upgrade deployment
-helm upgrade gpu-scheduler . \
-  --namespace gpu-scheduler-system \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
+### Recommended: Upgrade with Webhook Enabled
 
-# Enable webhook on existing deployment
+```bash
+# Upgrade deployment with webhook (recommended)
 helm upgrade gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --set webhook.enabled=true \
   --set webhook.caBundle=$CA_BUNDLE \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
+```
+
+### Alternative: Upgrade Scheduler Only
+
+```bash
+# Upgrade deployment without webhook (limited functionality)
+helm upgrade gpu-scheduler . \
+  --namespace gpu-scheduler-system \
+  --set webhook.enabled=false \
   --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
   --set image.tag=latest \
   --set image.pullPolicy=Always

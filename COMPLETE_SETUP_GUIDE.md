@@ -8,12 +8,11 @@ This comprehensive guide will take you from zero to a fully working GPU schedule
 2. [Prerequisites](#prerequisites)
 3. [Step 1: Local Cluster Setup](#step-1-local-cluster-setup)
 4. [Step 2: Build Container Images](#step-2-build-container-images)
-5. [Step 3: Deploy GPU Scheduler (Basic)](#step-3-deploy-gpu-scheduler-basic)
-6. [Step 4: Test Basic Functionality](#step-4-test-basic-functionality)
-7. [Step 5: Enable Webhook for Full Functionality](#step-5-enable-webhook-for-full-functionality)
-8. [Step 6: Test Complete Solution](#step-6-test-complete-solution)
-9. [Step 7: Verify End-to-End Results](#step-7-verify-end-to-end-results)
-10. [Troubleshooting](#troubleshooting)
+5. [Step 3: Deploy GPU Scheduler with Webhook](#step-3-deploy-gpu-scheduler-with-webhook)
+6. [Step 4: Test Complete Solution](#step-4-test-complete-solution)
+7. [Step 5: Verify End-to-End Results](#step-5-verify-end-to-end-results)
+8. [Step 6: ArgoCD Deployment (Optional)](#step-6-argocd-deployment-optional)
+9. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -145,94 +144,12 @@ gpu-scheduler-check  latest    def456abc123    1 minute ago     250MB
 - ArgoCD pulls images automatically from the registry
 - No manual loading required
 
-## Step 3: Deploy GPU Scheduler (Basic)
+## Step 3: Deploy GPU Scheduler with Webhook
 
-### 3.1 Deploy Scheduler (Without Webhook)
-```bash
-# Navigate to Helm chart directory
-cd ../charts/gpu-scheduler
-
-# Install basic scheduler
-helm install gpu-scheduler . \
-  --namespace gpu-scheduler-system \
-  --set webhook.enabled=false \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
-
-# Wait for deployment to be ready
-kubectl wait --for=condition=available deployment/gpu-scheduler \
-  --namespace gpu-scheduler-system --timeout=60s
-```
-
-### 3.2 Verify Scheduler Deployment
-```bash
-# Check scheduler pod status (should show 1/1 READY)
-kubectl get pods -n gpu-scheduler-system
-
-# Check scheduler logs
-kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system
-
-# Verify health endpoint
-kubectl port-forward svc/gpu-scheduler 8080:8080 -n gpu-scheduler-system &
-curl http://localhost:8080/health
-# Should return: {"status": "healthy"}
-```
-
-**✅ Expected Result:**
-```
-NAME                             READY   STATUS    RESTARTS   AGE
-gpu-scheduler-xxxxx-xxxxx        1/1     Running   0          30s
-```
-
-## Step 4: Test Basic Functionality
-
-### 4.1 Deploy Test Service
-```bash
-# Navigate to test service chart
-cd ../gpu-scheduler-check
-
-# Install test service with 3 replicas
-helm install gpu-test . \
-  --namespace gpu-scheduler-tests \
-  --set replicaCount=3 \
-  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always
-```
-
-### 4.2 Verify Pod Placement
-```bash
-# Check where test pods are scheduled
-kubectl get pods -n gpu-scheduler-tests -o wide
-
-# Should see pods on different worker nodes:
-# gpu-scheduler-check-0 on gpu-scheduler-cluster-worker  (node1)
-# gpu-scheduler-check-1 on gpu-scheduler-cluster-worker2 (node2)  
-# gpu-scheduler-check-2 on gpu-scheduler-cluster-worker3 (node3)
-```
-
-### 4.3 Check Test Pod Logs
-```bash
-# View logs from test pods (environment variables will show "not-set")
-kubectl logs gpu-scheduler-check-0 -n gpu-scheduler-tests
-kubectl logs gpu-scheduler-check-1 -n gpu-scheduler-tests
-kubectl logs gpu-scheduler-check-2 -n gpu-scheduler-tests
-```
-
-**✅ Expected Result:**
-```
-Node: gpu-scheduler-cluster-worker, CUDA_VISIBLE_DEVICES: not-set
-Node: gpu-scheduler-cluster-worker2, CUDA_VISIBLE_DEVICES: not-set
-Node: gpu-scheduler-cluster-worker3, CUDA_VISIBLE_DEVICES: not-set
-```
-
-## Step 5: Enable Webhook for Full Functionality
-
-### 5.1 Generate TLS Certificates
+### 3.1 Generate TLS Certificates
 ```bash
 # Navigate to scheduler directory
-cd ../../gpu-scheduler
+cd ../gpu-scheduler
 
 # Generate TLS certificates for webhook
 ./generate-webhook-certs.sh
@@ -244,20 +161,20 @@ kubectl apply -f certs/webhook-tls-secret.yaml
 kubectl get secret gpu-scheduler-webhook-tls -n gpu-scheduler-system
 ```
 
-### 5.2 Get CA Bundle for Webhook Configuration
+### 3.2 Get CA Bundle for Webhook Configuration
 ```bash
 # Extract CA bundle for webhook configuration
 CA_BUNDLE=$(cat certs/ca.crt | base64 -w 0)
 echo "CA Bundle length: ${#CA_BUNDLE} characters"
 ```
 
-### 5.3 Upgrade Scheduler with Webhook
+### 3.3 Deploy Scheduler with Webhook
 ```bash
-# Navigate back to Helm chart
+# Navigate to Helm chart directory
 cd ../charts/gpu-scheduler
 
-# Upgrade deployment to enable webhook
-helm upgrade gpu-scheduler . \
+# Deploy scheduler with webhook enabled
+helm install gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --set webhook.enabled=true \
   --set webhook.caBundle="$CA_BUNDLE" \
@@ -265,11 +182,12 @@ helm upgrade gpu-scheduler . \
   --set image.tag=latest \
   --set image.pullPolicy=Always
 
-# Wait for upgrade to complete
-kubectl rollout status deployment/gpu-scheduler -n gpu-scheduler-system
+# Wait for deployment to be ready
+kubectl wait --for=condition=available deployment/gpu-scheduler \
+  --namespace gpu-scheduler-system --timeout=60s
 ```
 
-### 5.4 Verify Webhook Deployment
+### 3.4 Verify Scheduler and Webhook Deployment
 ```bash
 # Check scheduler pod now has 2/2 containers (scheduler + webhook)
 kubectl get pods -n gpu-scheduler-system
@@ -277,8 +195,16 @@ kubectl get pods -n gpu-scheduler-system
 # Verify webhook configuration exists
 kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
 
+# Check scheduler logs
+kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c scheduler
+
 # Check webhook logs
 kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook
+
+# Verify health endpoint
+kubectl port-forward svc/gpu-scheduler 8080:8080 -n gpu-scheduler-system &
+curl http://localhost:8080/health
+# Should return: {"service":"gpu-scheduler","status":"healthy"}
 ```
 
 **✅ Expected Result:**
@@ -290,9 +216,9 @@ NAME                    WEBHOOKS   AGE
 gpu-scheduler-webhook   1          60s
 ```
 
-## Step 6: Test Complete Solution
+## Step 4: Test Complete Solution
 
-### 6.1 Create Test Pod with Webhook
+### 4.1 Create Test Pod with Webhook
 ```bash
 # Create a test pod to verify webhook functionality
 cat <<EOF | kubectl apply -f -
@@ -312,7 +238,7 @@ spec:
 EOF
 ```
 
-### 6.2 Verify Pod Placement and Environment
+### 4.2 Verify Pod Placement and Environment
 ```bash
 # Check pod was scheduled to correct node
 kubectl get pod webhook-test-0 -n gpu-scheduler-tests -o wide
@@ -323,7 +249,7 @@ kubectl logs webhook-test-0 -n gpu-scheduler-tests
 # Should show: CUDA_VISIBLE_DEVICES=0,1
 ```
 
-### 6.3 Test Multiple Pods
+### 4.3 Test Multiple Pods
 ```bash
 # Create additional test pods
 cat <<EOF | kubectl apply -f -
@@ -363,7 +289,7 @@ spec:
 EOF
 ```
 
-### 6.4 Check Webhook Processing
+### 4.4 Check Webhook Processing
 ```bash
 # View webhook logs to see processing
 kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c webhook --tail=10
@@ -376,9 +302,9 @@ kubectl logs -l app.kubernetes.io/name=gpu-scheduler -n gpu-scheduler-system -c 
 2025-07-11 01:19:26,502 - root - INFO - Injecting CUDA_VISIBLE_DEVICES=0,1,2 for pod webhook-test-2 (index 2)
 ```
 
-## Step 7: Verify End-to-End Results
+## Step 5: Verify End-to-End Results
 
-### 7.1 Check Complete Pod Status
+### 5.1 Check Complete Pod Status
 ```bash
 # Get comprehensive pod status
 kubectl get pods -n gpu-scheduler-tests -o wide
@@ -389,7 +315,7 @@ kubectl logs webhook-test-1 -n gpu-scheduler-tests
 kubectl logs webhook-test-2 -n gpu-scheduler-tests
 ```
 
-### 7.2 Validate Environment Variables
+### 5.2 Validate Environment Variables
 ```bash
 # Verify environment variables are set correctly
 kubectl exec webhook-test-0 -n gpu-scheduler-tests -- env | grep CUDA
@@ -397,7 +323,7 @@ kubectl exec webhook-test-1 -n gpu-scheduler-tests -- env | grep CUDA
 kubectl exec webhook-test-2 -n gpu-scheduler-tests -- env | grep CUDA
 ```
 
-### 7.3 Generate Final Validation Report
+### 5.3 Generate Final Validation Report
 ```bash
 # Create comprehensive status report
 echo "=== GPU Scheduler Validation Report ===" > validation-results.txt
@@ -454,11 +380,11 @@ This chart was built from scratch (not using `helm create`) to ensure:
 - GPU scheduler-specific configuration
 - Proper test service annotations
 
-## Step 8: ArgoCD Deployment (Optional)
+## Step 6: ArgoCD Deployment (Optional)
 
 If you want to use ArgoCD ApplicationSets for GitOps deployment:
 
-### 8.1 Install ArgoCD (if not already installed)
+### 6.1 Install ArgoCD (if not already installed)
 ```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -467,7 +393,7 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 kubectl wait --for=condition=available deployment -n argocd --all --timeout=300s
 ```
 
-### 8.2 Register Local Cluster (ESSENTIAL!)
+### 6.2 Register Local Cluster (ESSENTIAL!)
 ```bash
 # This step is CRITICAL for ApplicationSets to work!
 # Without this secret, ApplicationSets will not find any matching clusters
@@ -479,7 +405,7 @@ kubectl apply -f argocd/local-cluster-secret.yaml
 - The secret registers the cluster with the `environment: gpu-enabled` label
 - Without this, you'll see "generated 0 applications" errors
 
-### 8.3 Deploy ArgoCD Resources
+### 6.3 Deploy ArgoCD Resources
 
 **Container Registry Configuration:**
 The ApplicationSet is configured to pull images from GitLab Container Registry:
@@ -513,7 +439,7 @@ kubectl get applications -n argocd
 kubectl get applicationset -n argocd
 ```
 
-### 8.4 Troubleshoot ApplicationSet Issues
+### 6.4 Troubleshoot ApplicationSet Issues
 If applications aren't created:
 ```bash
 # Check ApplicationSet controller logs
