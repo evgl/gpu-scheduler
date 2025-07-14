@@ -17,7 +17,10 @@ This Helm chart deploys a complete GPU scheduling solution consisting of:
 ```bash
 helm install gpu-scheduler . \
   --namespace gpu-scheduler-system \
-  --create-namespace
+  --create-namespace \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
 ### Full Deployment (Scheduler + Webhook)
@@ -36,10 +39,15 @@ helm install gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --create-namespace \
   --set webhook.enabled=true \
-  --set webhook.caBundle=$CA_BUNDLE
+  --set webhook.caBundle=$CA_BUNDLE \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
 ## Configuration
+
+**Note**: The examples above use the GitLab Container Registry (`registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler`) which is the recommended image source for production deployments.
 
 ### Values.yaml Options
 
@@ -56,9 +64,9 @@ webhook:
 
 # Container image
 image:
-  repository: gpu-scheduler
+  repository: gpu-scheduler              # Default: use GitLab registry in production
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: IfNotPresent              # Use Always for GitLab registry
 
 # Resource limits
 resources:
@@ -238,13 +246,19 @@ helm install gpu-scheduler . \
 ```bash
 # Upgrade deployment
 helm upgrade gpu-scheduler . \
-  --namespace gpu-scheduler-system
+  --namespace gpu-scheduler-system \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 
 # Enable webhook on existing deployment
 helm upgrade gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --set webhook.enabled=true \
-  --set webhook.caBundle=$CA_BUNDLE
+  --set webhook.caBundle=$CA_BUNDLE \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
 ## Uninstall

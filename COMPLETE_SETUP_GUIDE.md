@@ -27,6 +27,9 @@ This comprehensive guide will take you from zero to a fully working GPU schedule
 - CUDA_VISIBLE_DEVICES environment variable set based on annotations
 - Working GPU scheduling system ready for production
 
+**Image Registry:**
+This guide uses GitLab Container Registry (`registry.gitlab.com/evgenii19/gpu-scheduler/`) for container images. For local development, you can build images locally and load them into KinD (see Step 2).
+
 ## Prerequisites
 
 ### Required Software
@@ -92,6 +95,8 @@ kubectl get namespaces | grep gpu-scheduler
 
 ## Step 2: Build Container Images
 
+**Note**: For production deployment, images are built via GitLab CI and stored in the GitLab Container Registry at `registry.gitlab.com/evgenii19/gpu-scheduler/`. The steps below are for local development only.
+
 ### 2.1 Build GPU Scheduler Image
 ```bash
 # Navigate to gpu-scheduler directory
@@ -118,7 +123,7 @@ docker images | grep gpu-scheduler-check
 
 ### 2.3 Load Images into KinD Cluster
 
-**Note**: This step is **only required for local KinD development**. When using ArgoCD with CI-built images, Kubernetes will automatically pull images from the GitLab Container Registry.
+**Note**: This step is **only required for local KinD development**. When using GitLab CI-built images, Kubernetes will automatically pull images from the GitLab Container Registry.
 
 ```bash
 # Load images into KinD cluster (LOCAL DEVELOPMENT ONLY)
@@ -150,7 +155,10 @@ cd ../charts/gpu-scheduler
 # Install basic scheduler
 helm install gpu-scheduler . \
   --namespace gpu-scheduler-system \
-  --set webhook.enabled=false
+  --set webhook.enabled=false \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 
 # Wait for deployment to be ready
 kubectl wait --for=condition=available deployment/gpu-scheduler \
@@ -187,7 +195,10 @@ cd ../gpu-scheduler-check
 # Install test service with 3 replicas
 helm install gpu-test . \
   --namespace gpu-scheduler-tests \
-  --set replicaCount=3
+  --set replicaCount=3 \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
 ### 4.2 Verify Pod Placement
@@ -249,7 +260,10 @@ cd ../charts/gpu-scheduler
 helm upgrade gpu-scheduler . \
   --namespace gpu-scheduler-system \
   --set webhook.enabled=true \
-  --set webhook.caBundle="$CA_BUNDLE"
+  --set webhook.caBundle="$CA_BUNDLE" \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 
 # Wait for upgrade to complete
 kubectl rollout status deployment/gpu-scheduler -n gpu-scheduler-system
@@ -483,6 +497,8 @@ image:
   pullPolicy: Always
 ```
 
+**Note**: The same GitLab registry parameters are used in all deployment methods (Helm, ArgoCD) to ensure consistency.
+
 ```bash
 # Apply the ArgoCD project
 kubectl apply -f argocd/gpu-scheduler-project.yaml
@@ -519,6 +535,16 @@ kubectl describe applicationset gpu-scheduler-complete -n argocd
 # Solution: Webhook not enabled or certificates missing
 helm get values gpu-scheduler -n gpu-scheduler-system
 # Verify webhook.enabled=true and caBundle is set
+```
+
+**Problem**: ImagePullBackOff error when deploying
+```bash
+# Solution: Use GitLab registry instead of local image
+helm upgrade gpu-scheduler . \
+  --namespace gpu-scheduler-system \
+  --set image.repository=registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler \
+  --set image.tag=latest \
+  --set image.pullPolicy=Always
 ```
 
 **Problem**: Pods not getting CUDA_VISIBLE_DEVICES
