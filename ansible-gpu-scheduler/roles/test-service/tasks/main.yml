@@ -18,6 +18,20 @@
       -n {{ test_namespace }} --timeout={{ kubectl_wait_timeout }}
   register: pods_ready
 
+- name: Wait for all test pods to be running (not just ready)
+  shell: |
+    kubectl get pods -l "app.kubernetes.io/name=gpu-scheduler-check" -n {{ test_namespace }} -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | grep -q "false" && exit 1 || exit 0
+  register: pods_running
+  until: pods_running.rc == 0
+  retries: 12
+  delay: 10
+  ignore_errors: true
+
+- name: Additional wait for containers to stabilize
+  pause:
+    seconds: "{{ pod_stabilization_wait }}"
+    prompt: "Waiting for containers to fully initialize..."
+
 - name: Check pod placement across nodes
   command: |
     kubectl get pods -l "app.kubernetes.io/name=gpu-scheduler-check" \
@@ -31,12 +45,15 @@
       Test pod placement:
       {{ pod_placement.stdout }}
 
-- name: Get logs from all test pods
+- name: Get logs from all test pods (with retries)
   command: |
     kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
       -n {{ test_namespace }} --tail=10
   register: all_pod_logs
   changed_when: false
+  retries: "{{ log_retrieval_retries }}"
+  delay: "{{ log_retrieval_delay }}"
+  until: all_pod_logs.rc == 0
 
 - name: Get individual pod logs for verification
   command: |
@@ -73,4 +90,87 @@
     that:
       - "'CUDA_VISIBLE_DEVICES' in all_pod_logs.stdout"
     fail_msg: "GPU scheduling failed - CUDA_VISIBLE_DEVICES not set in pods"
-    success_msg: "✅ GPU scheduling successful - all pods have CUDA_VISIBLE_DEVICES set" 
+    success_msg: "✅ GPU scheduling successful - all pods have CUDA_VISIBLE_DEVICES set"
+
+- name: Create outputs directory
+  file:
+    path: "{{ outputs_dir }}"
+    state: directory
+
+- name: Initialize logs-node3-node4.txt file
+  copy:
+    content: "=== LOGS FROM PODS ON NODE3 (gpu-scheduler-cluster-worker3) ===\n"
+    dest: "{{ outputs_dir }}/logs-node3-node4.txt"
+
+- name: Get pods on node3
+  shell: kubectl get pods -n {{ test_namespace }} -o wide | grep gpu-scheduler-cluster-worker3 | cut -d' ' -f1
+  register: node3_pods
+  changed_when: false
+
+- name: Append node3 pod logs
+  shell: kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> {{ outputs_dir }}/logs-node3-node4.txt 2>/dev/null || true
+  loop: "{{ node3_pods.stdout_lines }}"
+  when: node3_pods.stdout_lines | length > 0
+
+- name: Add separator for node4
+  lineinfile:
+    path: "{{ outputs_dir }}/logs-node3-node4.txt"
+    line: ""
+    insertafter: EOF
+
+- name: Add node4 header
+  lineinfile:
+    path: "{{ outputs_dir }}/logs-node3-node4.txt"
+    line: "=== LOGS FROM PODS ON NODE4 (gpu-scheduler-cluster-worker4) ==="
+    insertafter: EOF
+
+- name: Get pods on node4
+  shell: kubectl get pods -n {{ test_namespace }} -o wide | grep gpu-scheduler-cluster-worker4 | cut -d' ' -f1
+  register: node4_pods
+  changed_when: false
+
+- name: Append node4 pod logs
+  shell: |
+    echo "Pod {{ item }} logs:" >> {{ outputs_dir }}/logs-node3-node4.txt
+    kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> {{ outputs_dir }}/logs-node3-node4.txt 2>/dev/null || true
+    echo "" >> {{ outputs_dir }}/logs-node3-node4.txt
+  loop: "{{ node4_pods.stdout_lines }}"
+  when: node4_pods.stdout_lines | length > 0
+
+- name: Verify logs-node3-node4.txt was created
+  stat:
+    path: "{{ outputs_dir }}/logs-node3-node4.txt"
+  register: logs_file
+
+- name: Display logs file creation status
+  debug:
+    msg: |
+      ✅ logs-node3-node4.txt generated successfully at {{ outputs_dir }}/logs-node3-node4.txt
+      File size: {{ logs_file.stat.size }} bytes
+  when: logs_file.stat.exists
+
+- name: Generate kubectl-get-pods-wide.txt output file
+  shell: kubectl get pod -o wide -A > {{ outputs_dir }}/kubectl-get-pods-wide.txt
+  register: kubectl_output_generated
+  changed_when: true
+
+- name: Verify kubectl-get-pods-wide.txt was created
+  stat:
+    path: "{{ outputs_dir }}/kubectl-get-pods-wide.txt"
+  register: kubectl_output_file
+
+- name: Display kubectl output file creation status
+  debug:
+    msg: |
+      ✅ kubectl-get-pods-wide.txt generated successfully at {{ outputs_dir }}/kubectl-get-pods-wide.txt
+      File size: {{ kubectl_output_file.stat.size }} bytes
+  when: kubectl_output_file.stat.exists
+
+- name: Display all generated outputs
+  debug:
+    msg: |
+      📁 Generated output files:
+      - {{ outputs_dir }}/logs-node3-node4.txt ({{ logs_file.stat.size }} bytes)
+      - {{ outputs_dir }}/kubectl-get-pods-wide.txt ({{ kubectl_output_file.stat.size }} bytes)
+      
+      ✅ All required outputs generated successfully! 

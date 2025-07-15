@@ -378,9 +378,6 @@ kubectl get applications -n argocd
 # Check applications status
 kubectl get applications -n argocd
 
-# View detailed application status (if ArgoCD CLI is installed)
-argocd app list 2>/dev/null || echo "Use kubectl for status check"
-
 # Check that ArgoCD deployed the same pods we had before
 kubectl get pods -n gpu-scheduler-system
 kubectl get pods -n gpu-scheduler-tests -o wide

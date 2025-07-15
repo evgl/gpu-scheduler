@@ -125,7 +125,9 @@ security-scan:
 # Helm Validation Stage
 helm-validate:
   stage: helm-lint
-  image: alpine/helm:latest
+  image: 
+    name: alpine/helm:latest
+    entrypoint: [""]
   before_script:
     - set -e
     - helm version

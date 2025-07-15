@@ -65,6 +65,13 @@ image_registry: "registry.gitlab.com/evgenii19/gpu-scheduler"
 
 # Or use local images (for development)
 use_local_images: true
+
+# Timing and reliability settings
+kubectl_wait_timeout: 120s
+deployment_wait_timeout: 300s
+pod_stabilization_wait: 30  # seconds to wait for containers to stabilize
+log_retrieval_retries: 3
+log_retrieval_delay: 10  # seconds between retries
 ```
 
 ## 📝 Playbook Structure
