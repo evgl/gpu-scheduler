@@ -108,7 +108,7 @@
   changed_when: false
 
 - name: Append node3 pod logs
-  shell: kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> {{ outputs_dir }}/logs-node3-node4.txt 2>/dev/null || true
+  shell: kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> "{{ outputs_dir }}/logs-node3-node4.txt" 2>/dev/null || true
   loop: "{{ node3_pods.stdout_lines }}"
   when: node3_pods.stdout_lines | length > 0
 
@@ -131,9 +131,9 @@
 
 - name: Append node4 pod logs
   shell: |
-    echo "Pod {{ item }} logs:" >> {{ outputs_dir }}/logs-node3-node4.txt
-    kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> {{ outputs_dir }}/logs-node3-node4.txt 2>/dev/null || true
-    echo "" >> {{ outputs_dir }}/logs-node3-node4.txt
+    echo "Pod {{ item }} logs:" >> "{{ outputs_dir }}/logs-node3-node4.txt"
+    kubectl logs {{ item }} -n {{ test_namespace }} --tail=10 >> "{{ outputs_dir }}/logs-node3-node4.txt" 2>/dev/null || true
+    echo "" >> "{{ outputs_dir }}/logs-node3-node4.txt"
   loop: "{{ node4_pods.stdout_lines }}"
   when: node4_pods.stdout_lines | length > 0
 
@@ -150,7 +150,7 @@
   when: logs_file.stat.exists
 
 - name: Generate kubectl-get-pods-wide.txt output file
-  shell: kubectl get pod -o wide -A > {{ outputs_dir }}/kubectl-get-pods-wide.txt
+  shell: kubectl get pod -o wide -A > "{{ outputs_dir }}/kubectl-get-pods-wide.txt"
   register: kubectl_output_generated
   changed_when: true
 

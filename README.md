@@ -235,18 +235,29 @@ kubectl logs -l app.kubernetes.io/name=gpu-scheduler-check -f
 ## Documentation
 
 ### 📚 **Getting Started**
+
+**Option 1: Automated Setup with Ansible (Recommended)**
+```bash
+# Install Ansible and dependencies
+pip3 install ansible
+cd ansible-gpu-scheduler
+ansible-galaxy collection install -r requirements.yml
+
+# Run complete automated setup
+ansible-playbook -i inventory.yml playbook.yml
+```
+
+**Option 2: Manual Setup**
 - **[Complete Setup Guide](COMPLETE_SETUP_GUIDE.md)** - Step-by-step guide from zero to working system
 
+The Ansible playbook automates the entire setup process including:
+- Prerequisites verification (Docker, kubectl, Helm, KinD)
+- KinD cluster creation with GPU node labeling
+- Container image building and deployment
+- GPU scheduler and webhook deployment
+- Test service validation
+- ArgoCD GitOps configuration
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Merge Request
 
 ### Development Guidelines
 
