@@ -14,73 +14,11 @@ spec:
         namespace: gpu-scheduler-system
         path: charts/gpu-scheduler
         syncWave: "1"
-        values: |
-          image:
-            repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler
-            tag: latest
-            pullPolicy: Always
-          
-          scheduler:
-            name: gpu-scheduler
-          
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-          
-          nodeSelector:
-            node-role.kubernetes.io/control-plane: ""
-          
-          tolerations:
-          - key: node-role.kubernetes.io/control-plane
-            operator: Exists
-            effect: NoSchedule
         
       - component: test-service
         namespace: gpu-scheduler-tests
         path: charts/gpu-scheduler-check
         syncWave: "2"
-        values: |
-          replicaCount: 5
-          
-          image:
-            repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check
-            tag: latest
-            pullPolicy: Always
-          
-          gpuScheduling:
-            enabled: true
-            schedulerName: gpu-scheduler
-            schedulingMap:
-              - podIndex: 0
-                nodeName: node1
-                gpuDevices: "0,1"
-              - podIndex: 1
-                nodeName: node2
-                gpuDevices: "2"
-              - podIndex: 2
-                nodeName: node3
-                gpuDevices: "0,1,2"
-              - podIndex: 3
-                nodeName: node4
-                gpuDevices: "3"
-              - podIndex: 4
-                nodeName: node4
-                gpuDevices: "3"
-          
-          testService:
-            logInterval: 10
-          
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 100m
-              memory: 128Mi
 
   template:
     metadata:
@@ -102,7 +40,6 @@ spec:
           releaseName: 'gpu-{{component}}'
           valueFiles:
           - values.yaml
-          values: '{{values}}'
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'

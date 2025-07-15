@@ -1,0 +1,119 @@
+---
+# ArgoCD installation and configuration tasks
+# Based on Section 3 - Step 6 of COMPLETE_SETUP_GUIDE.md
+
+- name: Create ArgoCD namespace
+  kubernetes.core.k8s:
+    name: "{{ argocd_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Install ArgoCD
+  kubernetes.core.k8s:
+    state: present
+    src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    namespace: "{{ argocd_namespace }}"
+
+- name: Wait for ArgoCD server to be ready
+  command: |
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server \
+      -n {{ argocd_namespace }} --timeout={{ deployment_wait_timeout }}
+  register: argocd_ready
+
+- name: Get initial admin password
+  command: |
+    kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret \
+      -o jsonpath="{.data.password}"
+  register: admin_password_base64
+  changed_when: false
+
+- name: Decode admin password
+  set_fact:
+    argocd_admin_password: "{{ admin_password_base64.stdout | b64decode }}"
+
+- name: Display ArgoCD admin credentials
+  debug:
+    msg: |
+      ArgoCD admin credentials:
+      Username: {{ argocd_admin_username }}
+      Password: {{ argocd_admin_password }}
+      
+      To access ArgoCD UI:
+      kubectl port-forward svc/argocd-server -n {{ argocd_namespace }} 8080:443
+
+- name: Apply ArgoCD project configuration
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ argocd_dir }}/gpu-scheduler-project.yaml"
+
+- name: Verify project was created
+  command: kubectl get appproject gpu-scheduler -n {{ argocd_namespace }}
+  register: project_check
+  changed_when: false
+
+- name: Register local cluster (ESSENTIAL for ApplicationSets)
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ argocd_dir }}/local-cluster-secret.yaml"
+
+- name: Verify cluster secret was created
+  command: kubectl get secret local-cluster -n {{ argocd_namespace }}
+  register: cluster_secret_check
+  changed_when: false
+
+- name: Deploy ApplicationSet
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ argocd_dir }}/gpu-scheduler-complete-applicationset.yaml"
+
+- name: Verify ApplicationSet was created
+  command: kubectl get applicationset gpu-scheduler-complete -n {{ argocd_namespace }}
+  register: appset_check
+  changed_when: false
+
+- name: Wait for applications to be generated
+  pause:
+    seconds: 60
+    prompt: "Waiting for ApplicationSet to generate applications..."
+
+- name: Check applications status
+  command: kubectl get applications -n {{ argocd_namespace }}
+  register: apps_status
+  changed_when: false
+
+- name: Display applications status
+  debug:
+    msg: |
+      ArgoCD Applications:
+      {{ apps_status.stdout }}
+
+- name: Verify GitOps deployment
+  block:
+    - name: Check GPU scheduler pods via ArgoCD
+      command: kubectl get pods -n {{ scheduler_namespace }}
+      register: gitops_scheduler_pods
+      changed_when: false
+
+    - name: Check test pods via ArgoCD
+      command: kubectl get pods -n {{ test_namespace }} -o wide
+      register: gitops_test_pods
+      changed_when: false
+
+    - name: Verify GPU scheduling still working
+      command: |
+        kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
+          -n {{ test_namespace }} --tail=5
+      register: gitops_gpu_logs
+      changed_when: false
+
+    - name: Display GitOps verification results
+      debug:
+        msg: |
+          ✅ ArgoCD GitOps deployment verified!
+          
+          Scheduler pods:
+          {{ gitops_scheduler_pods.stdout }}
+          
+          Test pods with GPU scheduling:
+          {{ gitops_gpu_logs.stdout }} 

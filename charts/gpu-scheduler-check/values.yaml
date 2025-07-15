@@ -4,8 +4,8 @@
 replicaCount: 5
 
 image:
-  repository: gpu-scheduler-check
-  pullPolicy: IfNotPresent
+  repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler-check
+  pullPolicy: Always
   tag: "latest"
 
 imagePullSecrets: []

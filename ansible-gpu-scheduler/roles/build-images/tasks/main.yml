@@ -1,0 +1,50 @@
+---
+# Build container images tasks
+# Based on Section 3 - Step 2 of COMPLETE_SETUP_GUIDE.md
+
+- name: Check if GPU scheduler image exists
+  command: "docker images -q {{ local_scheduler_image }}"
+  register: scheduler_image_exists
+  changed_when: false
+
+- name: Build GPU scheduler image
+  command: docker build -t {{ local_scheduler_image }} .
+  args:
+    chdir: "{{ gpu_scheduler_dir }}"
+  when: scheduler_image_exists.stdout == ""
+
+- name: Check if test service image exists
+  command: "docker images -q {{ local_test_image }}"
+  register: test_image_exists
+  changed_when: false
+
+- name: Build test service image
+  command: docker build -t {{ local_test_image }} .
+  args:
+    chdir: "{{ test_service_dir }}"
+  when: test_image_exists.stdout == ""
+
+- name: Verify images built successfully
+  command: docker images
+  register: docker_images
+  changed_when: false
+
+- name: Display built images
+  debug:
+    msg: "{{ docker_images.stdout_lines | select('search', 'gpu-scheduler') | list }}"
+
+- name: Load images into KinD cluster
+  command: "kind load docker-image {{ item }} --name {{ cluster_name }}"
+  loop:
+    - "{{ local_scheduler_image }}"
+    - "{{ local_test_image }}"
+  register: image_load_results
+
+- name: Verify images are available in cluster
+  command: "docker exec {{ cluster_name }}-control-plane crictl images"
+  register: cluster_images
+  changed_when: false
+
+- name: Display images loaded in cluster
+  debug:
+    msg: "{{ cluster_images.stdout_lines | select('search', 'gpu-scheduler') | list }}" 

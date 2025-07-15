@@ -1,0 +1,130 @@
+---
+# GPU Scheduler deployment with webhook tasks
+# Based on Section 3 - Step 3 of COMPLETE_SETUP_GUIDE.md
+
+- name: Generate TLS certificates for webhook
+  shell: |
+    cd "{{ gpu_scheduler_dir }}"
+    ./generate-webhook-certs.sh
+  args:
+    creates: "{{ gpu_scheduler_dir }}/certs/webhook-tls-secret.yaml"
+
+- name: Apply TLS secret
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ gpu_scheduler_dir }}/certs/webhook-tls-secret.yaml"
+
+- name: Verify secret was created
+  command: "kubectl get secret {{ webhook_tls_secret_name }} -n {{ scheduler_namespace }}"
+  register: tls_secret_check
+  changed_when: false
+
+- name: Extract CA bundle for webhook configuration
+  shell: |
+    cat "{{ gpu_scheduler_dir }}/certs/ca.crt" | base64 | tr -d '\n'
+  register: ca_bundle
+  changed_when: false
+
+- name: Display CA bundle length
+  debug:
+    msg: "CA Bundle length: {{ ca_bundle.stdout | length }} characters"
+
+- name: Deploy scheduler with webhook (initial attempt)
+  shell: |
+    helm install gpu-scheduler "{{ charts_dir }}/gpu-scheduler" \
+      --namespace {{ scheduler_namespace }} \
+      --set webhook.enabled={{ webhook_enabled }} \
+      --set webhook.caBundle="{{ ca_bundle.stdout }}" \
+      --set image.repository={{ use_local_images | ternary(local_scheduler_image.split(':')[0], image_registry + '/gpu-scheduler') }} \
+      --set image.tag={{ use_local_images | ternary(local_scheduler_image.split(':')[1], image_tag) }} \
+      --set image.pullPolicy={{ use_local_images | ternary('IfNotPresent', image_pull_policy) }}
+  register: helm_install
+  failed_when: false
+
+- name: Wait for initial deployment check
+  pause:
+    seconds: 30
+
+- name: Check deployment status
+  command: "kubectl get deployment gpu-scheduler -n {{ scheduler_namespace }} -o jsonpath='{.status.readyReplicas}'"
+  register: deployment_ready
+  failed_when: false
+  changed_when: false
+
+- name: Apply chicken-and-egg fix if needed
+  block:
+    - name: Display chicken-and-egg fix message
+      debug:
+        msg: "Applying chicken-and-egg fix..."
+    
+    - name: Delete webhook configuration temporarily
+      kubernetes.core.k8s:
+        api_version: admissionregistration.k8s.io/v1
+        kind: MutatingWebhookConfiguration
+        name: gpu-scheduler-webhook
+        state: absent
+      failed_when: false
+    
+    - name: Restart deployment
+      command: "kubectl rollout restart deployment/gpu-scheduler -n {{ scheduler_namespace }}"
+    
+    - name: Wait for deployment to be ready
+      command: |
+        kubectl wait --for=condition=available deployment/gpu-scheduler \
+          --namespace {{ scheduler_namespace }} --timeout={{ kubectl_wait_timeout }}
+    
+    - name: Re-enable webhook configuration
+      shell: |
+        helm upgrade gpu-scheduler "{{ charts_dir }}/gpu-scheduler" \
+          --namespace {{ scheduler_namespace }} \
+          --set webhook.enabled={{ webhook_enabled }} \
+          --set webhook.caBundle="{{ ca_bundle.stdout }}" \
+          --set image.repository={{ use_local_images | ternary(local_scheduler_image.split(':')[0], image_registry + '/gpu-scheduler') }} \
+          --set image.tag={{ use_local_images | ternary(local_scheduler_image.split(':')[1], image_tag) }} \
+          --set image.pullPolicy={{ use_local_images | ternary('IfNotPresent', image_pull_policy) }}
+    
+    - name: Display fix completion message
+      debug:
+        msg: "Fix applied successfully!"
+  when: deployment_ready.stdout != "1"
+
+- name: Verify scheduler pod has 2/2 containers
+  command: "kubectl get pods -n {{ scheduler_namespace }} -l app.kubernetes.io/name=gpu-scheduler"
+  register: scheduler_pods
+  until: '"2/2" in scheduler_pods.stdout'
+  retries: 10
+  delay: 5
+
+- name: Verify webhook configuration exists
+  command: kubectl get mutatingwebhookconfiguration gpu-scheduler-webhook
+  register: webhook_config
+  changed_when: false
+
+- name: Display deployment status
+  debug:
+    msg: |
+      Scheduler pods:
+      {{ scheduler_pods.stdout }}
+      
+      Webhook configuration:
+      {{ webhook_config.stdout_lines[0] }}
+
+- name: Test health endpoint
+  uri:
+    url: "http://localhost:8080/health"
+    method: GET
+    status_code: 200
+  delegate_to: localhost
+  run_once: true
+  register: health_check
+  until: health_check.status == 200
+  retries: 5
+  delay: 10
+  failed_when: false
+  when: false  # Disabled as it requires port-forward
+
+- name: Display success message
+  debug:
+    msg: |
+      ✅ GPU Scheduler deployed successfully with webhook enabled!
+      To check health: kubectl port-forward svc/gpu-scheduler 8080:8080 -n {{ scheduler_namespace }} 

@@ -1,0 +1,83 @@
+---
+# GPU Scheduler - Complete Setup Ansible Playbook
+# This playbook automates all steps from COMPLETE_SETUP_GUIDE.md
+
+- name: GPU Scheduler Complete Setup
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - group_vars/all.yml
+  
+  tasks:
+    - name: Display setup information
+      debug:
+        msg: |
+          Starting GPU Scheduler setup with the following configuration:
+          - Cluster Name: {{ cluster_name }}
+          - Image Registry: {{ image_registry }}
+          - Use Local Images: {{ use_local_images }}
+          - Number of Worker Nodes: {{ num_worker_nodes }}
+
+  roles:
+    # Step 1: Prerequisites verification (Section 2 of guide)
+    - role: prerequisites
+      tags: ['prerequisites']
+      
+    # Step 2: Local Cluster Setup (Section 3 - Step 1)
+    - role: kind-cluster
+      tags: ['cluster']
+      
+    # Step 3: Build Container Images (Section 3 - Step 2)
+    - role: build-images
+      tags: ['build']
+      when: use_local_images | bool
+      
+    # Step 4: Deploy GPU Scheduler with Webhook (Section 3 - Step 3)
+    - role: gpu-scheduler
+      tags: ['scheduler']
+      
+    # Step 5: Deploy Test Service and Verify (Section 3 - Step 4)
+    - role: test-service
+      tags: ['test']
+      
+    # Step 6: ArgoCD Deployment (Section 3 - Step 6)
+    - role: argocd
+      tags: ['argocd', 'gitops']
+      
+  post_tasks:
+    - name: Generate kubectl output (Section 3 - Step 5)
+      shell: |
+        mkdir -p "{{ playbook_dir }}/../outputs"
+        kubectl get pod -o wide -A > "{{ playbook_dir }}/../outputs/kubectl-get-pods-wide.txt"
+      tags: ['output']
+      
+    - name: Generate logs from test pods on nodes 3 and 4
+      shell: |
+        mkdir -p "{{ playbook_dir }}/../outputs"
+        echo "=== Logs from test pods on nodes 3 and 4 ===" > "{{ playbook_dir }}/../outputs/logs-node3-node4.txt"
+        echo "" >> "{{ playbook_dir }}/../outputs/logs-node3-node4.txt"
+        
+        # Get logs from all test pods and filter for nodes 3 and 4
+        kubectl get pods -n gpu-scheduler-tests -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.nodeName}{"\n"}{end}' | while read podname nodename; do
+          if [[ "$nodename" == "gpu-scheduler-cluster-worker3" || "$nodename" == "gpu-scheduler-cluster-worker4" ]]; then
+            echo "=== Pod: $podname on Node: $nodename ===" >> "{{ playbook_dir }}/../outputs/logs-node3-node4.txt"
+            kubectl logs "$podname" -n gpu-scheduler-tests >> "{{ playbook_dir }}/../outputs/logs-node3-node4.txt" 2>/dev/null || echo "No logs available for $podname" >> "{{ playbook_dir }}/../outputs/logs-node3-node4.txt"
+            echo "" >> "{{ playbook_dir }}/../outputs/logs-node3-node4.txt"
+          fi
+        done
+      tags: ['output']
+      
+    - name: Display completion message
+      debug:
+        msg: |
+          ✅ GPU Scheduler setup completed successfully!
+          
+          Key endpoints:
+          - GPU Scheduler Health: kubectl port-forward svc/gpu-scheduler 8080:8080 -n gpu-scheduler-system
+          - ArgoCD UI: kubectl port-forward svc/argocd-server -n argocd 8080:443
+          
+          Check the outputs directory for kubectl pod listing.
+          
+          Verify GPU scheduling with:
+          kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" -n gpu-scheduler-tests --tail=5 

@@ -1,0 +1,62 @@
+---
+# Global configuration for GPU Scheduler setup
+# Based on COMPLETE_SETUP_GUIDE.md
+
+# Cluster configuration
+cluster_name: gpu-scheduler-cluster
+num_worker_nodes: 4
+kind_config_path: "{{ playbook_dir }}/kind-config.yaml"
+
+# Image configuration
+# For local development, set use_local_images to true
+# For production with GitLab CI, set to false and use GitLab registry
+use_local_images: false
+image_registry: "registry.gitlab.com/evgenii19/gpu-scheduler"
+image_tag: latest
+image_pull_policy: Always
+
+# Local image names (when use_local_images is true)
+local_scheduler_image: "gpu-scheduler:latest"
+local_test_image: "gpu-scheduler-check:latest"
+
+# Namespaces
+scheduler_namespace: gpu-scheduler-system
+test_namespace: gpu-scheduler-tests
+
+# Node labels for GPU assignment
+node_labels:
+  - node: gpu-scheduler-cluster-worker
+    label: node1
+  - node: gpu-scheduler-cluster-worker2
+    label: node2
+  - node: gpu-scheduler-cluster-worker3
+    label: node3
+  - node: gpu-scheduler-cluster-worker4
+    label: node4
+
+# Webhook configuration
+webhook_enabled: true
+webhook_tls_secret_name: gpu-scheduler-webhook-tls
+
+# ArgoCD configuration
+argocd_namespace: argocd
+argocd_admin_username: admin
+
+# Tool versions (minimum required)
+required_tools:
+  docker: "20.10"
+  kubectl: "1.19"
+  helm: "3.0"
+  kind: "0.11"
+
+# Paths
+project_root: "{{ playbook_dir }}/.."
+gpu_scheduler_dir: "{{ project_root }}/gpu-scheduler"
+test_service_dir: "{{ project_root }}/gpu-scheduler-check"
+charts_dir: "{{ project_root }}/charts"
+argocd_dir: "{{ project_root }}/argocd"
+outputs_dir: "{{ project_root }}/outputs"
+
+# Timeouts
+kubectl_wait_timeout: 120s
+deployment_wait_timeout: 300s 

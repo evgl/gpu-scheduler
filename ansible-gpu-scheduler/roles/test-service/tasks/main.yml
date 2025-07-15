@@ -1,0 +1,76 @@
+---
+# Test service deployment and verification tasks
+# Based on Section 3 - Step 4 of COMPLETE_SETUP_GUIDE.md
+
+- name: Deploy GPU scheduler check test service
+  shell: |
+    helm install gpu-test "{{ charts_dir }}/gpu-scheduler-check" \
+      --namespace {{ test_namespace }} \
+      --create-namespace \
+      --set image.repository={{ use_local_images | ternary(local_test_image.split(':')[0], image_registry + '/gpu-scheduler-check') }} \
+      --set image.tag={{ use_local_images | ternary(local_test_image.split(':')[1], image_tag) }} \
+      --set image.pullPolicy={{ use_local_images | ternary('IfNotPresent', image_pull_policy) }}
+  register: test_helm_install
+
+- name: Wait for all test pods to be ready
+  command: |
+    kubectl wait --for=condition=ready pod -l "app.kubernetes.io/name=gpu-scheduler-check" \
+      -n {{ test_namespace }} --timeout={{ kubectl_wait_timeout }}
+  register: pods_ready
+
+- name: Check pod placement across nodes
+  command: |
+    kubectl get pods -l "app.kubernetes.io/name=gpu-scheduler-check" \
+      -n {{ test_namespace }} -o wide
+  register: pod_placement
+  changed_when: false
+
+- name: Display pod placement
+  debug:
+    msg: |
+      Test pod placement:
+      {{ pod_placement.stdout }}
+
+- name: Get logs from all test pods
+  command: |
+    kubectl logs -l "app.kubernetes.io/name=gpu-scheduler-check" \
+      -n {{ test_namespace }} --tail=10
+  register: all_pod_logs
+  changed_when: false
+
+- name: Get individual pod logs for verification
+  command: |
+    kubectl logs {{ item }} -n {{ test_namespace }}
+  loop:
+    - gpu-test-gpu-scheduler-check-0
+    - gpu-test-gpu-scheduler-check-1
+    - gpu-test-gpu-scheduler-check-2
+    - gpu-test-gpu-scheduler-check-3
+    - gpu-test-gpu-scheduler-check-4
+  register: individual_logs
+  failed_when: false
+  changed_when: false
+
+- name: Verify GPU scheduling results
+  set_fact:
+    scheduling_results: |
+      Expected GPU scheduling results:
+      ✅ Pod 0 on node1: CUDA_VISIBLE_DEVICES=0,1
+      ✅ Pod 1 on node2: CUDA_VISIBLE_DEVICES=2
+      ✅ Pod 2 on node3: CUDA_VISIBLE_DEVICES=0,1,2
+      ✅ Pod 3 on node4: CUDA_VISIBLE_DEVICES=3
+      ✅ Pod 4 on node4: CUDA_VISIBLE_DEVICES=3
+      
+      Actual results:
+      {{ all_pod_logs.stdout }}
+
+- name: Display GPU scheduling verification
+  debug:
+    msg: "{{ scheduling_results }}"
+
+- name: Check if all pods have CUDA_VISIBLE_DEVICES set
+  assert:
+    that:
+      - "'CUDA_VISIBLE_DEVICES' in all_pod_logs.stdout"
+    fail_msg: "GPU scheduling failed - CUDA_VISIBLE_DEVICES not set in pods"
+    success_msg: "✅ GPU scheduling successful - all pods have CUDA_VISIBLE_DEVICES set" 

@@ -1,0 +1,65 @@
+---
+# Prerequisites verification tasks
+# Based on Section 2 of COMPLETE_SETUP_GUIDE.md
+# The guide only provides version checks and installation links
+
+- name: Check Docker version
+  command: docker --version
+  register: docker_version
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Docker not installed
+  fail:
+    msg: |
+      Docker is not installed or not running.
+      Please install Docker 20.10+ from: https://docs.docker.com/get-docker/
+  when: docker_version.rc != 0
+
+- name: Check kubectl version
+  command: kubectl version --client
+  register: kubectl_version
+  failed_when: false
+  changed_when: false
+
+- name: Fail if kubectl not installed
+  fail:
+    msg: |
+      kubectl is not installed.
+      Please install kubectl 1.19+ from: https://kubernetes.io/docs/tasks/tools/
+  when: kubectl_version.rc != 0
+
+- name: Check Helm version
+  command: helm version
+  register: helm_version
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Helm not installed
+  fail:
+    msg: |
+      Helm is not installed.
+      Please install Helm 3.x from: https://helm.sh/docs/intro/install/
+  when: helm_version.rc != 0
+
+- name: Check KinD version
+  command: kind version
+  register: kind_version
+  failed_when: false
+  changed_when: false
+
+- name: Fail if KinD not installed
+  fail:
+    msg: |
+      KinD is not installed.
+      Please install KinD 0.11+ from: https://kind.sigs.k8s.io/docs/user/quick-start/#installation
+  when: kind_version.rc != 0
+
+- name: Display installed tool versions
+  debug:
+    msg: |
+      ✅ All required tools are installed:
+      - Docker: {{ docker_version.stdout }}
+      - kubectl: {{ kubectl_version.stdout }}
+      - Helm: {{ helm_version.stdout }}
+      - KinD: {{ kind_version.stdout }} 

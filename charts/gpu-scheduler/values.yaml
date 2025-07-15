@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: gpu-scheduler
-  pullPolicy: IfNotPresent
+  repository: registry.gitlab.com/evgenii19/gpu-scheduler/gpu-scheduler
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
@@ -20,7 +20,7 @@ scheduler:
 
 webhook:
   # Enable webhook for automatic CUDA_VISIBLE_DEVICES injection
-  enabled: false
+  enabled: true
   # Base64 encoded CA bundle for webhook TLS verification
   # This must be set if webhook is enabled
   caBundle: ""

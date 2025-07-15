@@ -1,0 +1,65 @@
+---
+# KinD cluster setup tasks
+# Based on Section 3 - Step 1 of COMPLETE_SETUP_GUIDE.md
+
+- name: Check if KinD cluster already exists
+  command: kind get clusters
+  register: kind_clusters
+  changed_when: false
+
+- name: Delete existing cluster if it exists
+  command: "kind delete cluster --name {{ cluster_name }}"
+  when: cluster_name in kind_clusters.stdout
+  
+- name: Create KinD cluster with configuration
+  shell: 'kind create cluster --config "{{ kind_config_path }}" --name {{ cluster_name }}'
+  
+- name: Wait for cluster to be ready
+  command: "kubectl cluster-info --context kind-{{ cluster_name }}"
+  register: cluster_info
+  until: cluster_info.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Set kubectl context
+  command: "kubectl config use-context kind-{{ cluster_name }}"
+
+- name: Label worker nodes with logical GPU node names
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Node
+      metadata:
+        name: "{{ item.node }}"
+        labels:
+          gpu-node-name: "{{ item.label }}"
+  loop: "{{ node_labels }}"
+
+- name: Verify node labels
+  command: kubectl get nodes --show-labels
+  register: node_labels_output
+  changed_when: false
+
+- name: Display node labels
+  debug:
+    msg: "{{ node_labels_output.stdout_lines | select('search', 'gpu-node-name') | list }}"
+
+- name: Create required namespaces
+  kubernetes.core.k8s:
+    name: "{{ item }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  loop:
+    - "{{ scheduler_namespace }}"
+    - "{{ test_namespace }}"
+
+- name: Verify namespaces created
+  command: kubectl get namespaces
+  register: namespaces_output
+  changed_when: false
+
+- name: Display created namespaces
+  debug:
+    msg: "{{ namespaces_output.stdout_lines | select('search', 'gpu-scheduler') | list }}" 
