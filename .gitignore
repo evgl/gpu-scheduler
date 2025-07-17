@@ -60,4 +60,4 @@ secrets/
 
 # Backup files
 *.bak
-*.backup
+*.backup.gitlab-ci.yml
