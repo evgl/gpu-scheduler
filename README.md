@@ -6,6 +6,8 @@ A complete Kubernetes GPU scheduling system with custom scheduler and mutating a
 
 This project provides a two-component solution: a custom Kubernetes scheduler for pod placement and a mutating admission webhook for automatic CUDA_VISIBLE_DEVICES environment variable injection. Together, they process GPU scheduling annotations and assign pods to specified nodes with the correct GPU device visibility. The system includes a complete GitOps deployment pipeline using ArgoCD and comprehensive testing capabilities.
 
+[View the repository on GitLab](https://gitlab.com/evgenii19/gpu-scheduler)
+
 ## Features
 
 - **Custom GPU Scheduler**: Kubernetes scheduler that interprets GPU assignment annotations
